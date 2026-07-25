@@ -4,28 +4,28 @@
 <meta charset="utf-8">
 <title>Bi-Molecular Coupling-Energy Challenge - Write-up</title>
 <style>
-  @page { size: A4; margin: 14mm 16mm; }
+  @page { size: A4; margin: 10mm 12mm; }
   * { box-sizing: border-box; }
   body {
     font-family: "Helvetica Neue", Arial, sans-serif;
-    font-size: 9.6pt;
-    line-height: 1.32;
+    font-size: 8.4pt;
+    line-height: 1.22;
     color: #111;
     margin: 0;
   }
-  h1 { font-size: 13pt; margin: 0 0 2mm 0; }
-  h2 { font-size: 10pt; margin: 3mm 0 1mm 0; border-bottom: 0.5pt solid #999; padding-bottom: 0.5mm; }
-  p { margin: 0 0 1.5mm 0; text-align: justify; }
-  .meta { font-size: 8.3pt; color: #444; margin-bottom: 3mm; }
+  h1 { font-size: 11.5pt; margin: 0 0 1.5mm 0; }
+  h2 { font-size: 9pt; margin: 2mm 0 0.7mm 0; border-bottom: 0.5pt solid #999; padding-bottom: 0.3mm; }
+  p { margin: 0 0 1mm 0; text-align: justify; }
+  .meta { font-size: 7.4pt; color: #444; margin-bottom: 2mm; }
   .cols { display: flex; gap: 5mm; }
   .col-text { flex: 1.35; }
   .col-fig { flex: 1; text-align: center; }
   .col-fig img { width: 100%; max-width: 100%; border: 0.5pt solid #ccc; }
-  .caption { font-size: 7.6pt; color: #444; margin-top: 1mm; text-align: left; }
-  code, .mono { font-family: "SF Mono", Consolas, monospace; font-size: 8.8pt; background: #f2f2f2; padding: 0 1px; }
-  ul { margin: 0 0 1.5mm 4mm; padding: 0; }
-  li { margin-bottom: 0.5mm; }
-  .results-table { border-collapse: collapse; font-size: 8.4pt; margin: 1mm 0 2mm 0; width: 100%; }
+  .caption { font-size: 6.8pt; color: #444; margin-top: 0.5mm; text-align: left; }
+  code, .mono { font-family: "SF Mono", Consolas, monospace; font-size: 7.8pt; background: #f2f2f2; padding: 0 1px; }
+  ul { margin: 0 0 1mm 4mm; padding: 0; }
+  li { margin-bottom: 0.3mm; }
+  .results-table { border-collapse: collapse; font-size: 7.4pt; margin: 0.5mm 0 1mm 0; width: 100%; }
   .results-table td, .results-table th { border: 0.5pt solid #bbb; padding: 1mm 1.5mm; text-align: right; }
   .results-table th { background: #f0f0f0; }
   .results-table td:first-child, .results-table th:first-child { text-align: left; }
@@ -71,8 +71,9 @@ hyperparameter selection or training. Hyperparameters (<code>&gamma;=1/&sigma;</
 regularizer <code>&lambda;</code>) were chosen by 5-fold cross-validated grid search
 (log-spaced grids, <code>&gamma;&isin;[10<sup>-4</sup>,10<sup>-1</sup>]</code>,
 <code>&lambda;&isin;[10<sup>-6</sup>,10<sup>-1</sup>]</code>) on a 2000-sample subset of the
-training pool, then held fixed across the learning curve to bound total compute
-(KRR fitting is O(N<sup>3</sup>)).</p>
+training pool, selecting <code>&gamma;=10<sup>-4</sup></code>,
+<code>&lambda;=10<sup>-6</sup></code> (CV MAE 2.11), then held fixed across the learning curve
+to bound total compute (KRR fitting is O(N<sup>3</sup>)).</p>
 
 <h2>Validation / learning curve protocol</h2>
 <p>For each training size <code>N</code> in a log-spaced sequence (50 to 12800), we drew random
@@ -82,7 +83,13 @@ measured MAE against the fixed held-out test set. Mean MAE (min/max across repea
 <code>N</code> is plotted on log-log axes at right.</p>
 
 <h2>Results &amp; discussion</h2>
-<p><b>PLACEHOLDER_RESULTS_PARAGRAPH</b></p>
+<p>Test MAE falls from 13.1 (N=50) to 0.175 (N=12800) &mdash; a clean, near power-law decay,
+<code>MAE &asymp; N<sup>-0.79</sup></code> (log-log least-squares fit, R<sup>2</sup>=0.93; see
+Fig.&nbsp;1 and table). For reference, the target's standard deviation is 38.4, so even the
+smallest model (N=50) already explains most of the variance, and by N=12800 the error is
+&asymp;0.5% of the target spread. The challenge notes kernel-based models can reach MAE in
+0.01&ndash;0.1; the observed trend is consistent with reaching that range at somewhat larger
+N (the curve shows no sign of flattening within the range explored).</p>
 <p>The learning curve follows the expected power-law decay of MAE with training-set size for
 kernel-based molecular-property regression. The main limitation is KRR's O(N<sup>3</sup>) training
 cost, which caps the largest training size explored here well below the full 36000-pair pool; a
@@ -99,7 +106,15 @@ across repeats.</div>
 <table class="results-table">
 <thead><tr><th>N (train pairs)</th><th>MAE</th></tr></thead>
 <tbody id="results-tbody">
-PLACEHOLDER_TABLE_ROWS
+<tr><td>50</td><td>13.094</td></tr>
+<tr><td>100</td><td>11.310</td></tr>
+<tr><td>200</td><td>9.062</td></tr>
+<tr><td>400</td><td>7.086</td></tr>
+<tr><td>800</td><td>4.348</td></tr>
+<tr><td>1600</td><td>2.190</td></tr>
+<tr><td>3200</td><td>0.926</td></tr>
+<tr><td>6400</td><td>0.397</td></tr>
+<tr><td>12800</td><td>0.175</td></tr>
 </tbody>
 </table>
 </div>
