@@ -1,0 +1,109 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Bi-Molecular Coupling-Energy Challenge - Write-up</title>
+<style>
+  @page { size: A4; margin: 14mm 16mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 9.6pt;
+    line-height: 1.32;
+    color: #111;
+    margin: 0;
+  }
+  h1 { font-size: 13pt; margin: 0 0 2mm 0; }
+  h2 { font-size: 10pt; margin: 3mm 0 1mm 0; border-bottom: 0.5pt solid #999; padding-bottom: 0.5mm; }
+  p { margin: 0 0 1.5mm 0; text-align: justify; }
+  .meta { font-size: 8.3pt; color: #444; margin-bottom: 3mm; }
+  .cols { display: flex; gap: 5mm; }
+  .col-text { flex: 1.35; }
+  .col-fig { flex: 1; text-align: center; }
+  .col-fig img { width: 100%; max-width: 100%; border: 0.5pt solid #ccc; }
+  .caption { font-size: 7.6pt; color: #444; margin-top: 1mm; text-align: left; }
+  code, .mono { font-family: "SF Mono", Consolas, monospace; font-size: 8.8pt; background: #f2f2f2; padding: 0 1px; }
+  ul { margin: 0 0 1.5mm 4mm; padding: 0; }
+  li { margin-bottom: 0.5mm; }
+  .results-table { border-collapse: collapse; font-size: 8.4pt; margin: 1mm 0 2mm 0; width: 100%; }
+  .results-table td, .results-table th { border: 0.5pt solid #bbb; padding: 1mm 1.5mm; text-align: right; }
+  .results-table th { background: #f0f0f0; }
+  .results-table td:first-child, .results-table th:first-child { text-align: left; }
+</style>
+</head>
+<body>
+
+<h1>Bi-Molecular Coupling-Energy Challenge: Kernel Ridge Regression on Supermolecule Coulomb Matrices</h1>
+<div class="meta">Challenge in Bi-Molecular Machine Learning &mdash; Peter Zaspel, Bergische Universit&auml;t Wuppertal, HPC group</div>
+
+<div class="cols">
+<div class="col-text">
+
+<h2>Task &amp; data</h2>
+<p>Predict the excitonic coupling energy of a pair of molecular conformers (A, B) from their 3D
+geometries. The dataset (<code>BiMolData</code>) provides 200 conformers each of monomer A and
+monomer B &mdash; verified to be the same 15-atom molecule (C<sub>6</sub>H<sub>5</sub>NO<sub>3</sub>)
+in identical atom ordering across all conformers &mdash; together with coupling energies for the
+full 200&times;200 = 40000 pair grid. <code>Coord_supermol.xyz</code> was verified to be exactly the
+concatenation of the paired A and B geometries at their true relative arrangement, atom-for-atom,
+with zero numerical difference.</p>
+
+<h2>Representation</h2>
+<p>The bi-molecular difficulty is that the target depends on the shape of A, the shape of B,
+<em>and</em> their relative arrangement. Rather than combining two separate per-monomer
+representations, we build a single Coulomb matrix (Rupp&nbsp;et&nbsp;al., <em>PRL</em>
+<b>108</b>, 058301, 2012) for the 30-atom "supermolecule" formed by A and B at their true relative
+geometry &mdash; exactly what <code>Coord_supermol.xyz</code> encodes. Its off-diagonal entries are
+<code>M<sub>ij</sub> = Z<sub>i</sub>Z<sub>j</sub>/|R<sub>i</sub>-R<sub>j</sub>|</code>, diagonal
+<code>M<sub>ii</sub> = 0.5&nbsp;Z<sub>i</sub><sup>2.4</sup></code>. This single 30&times;30 matrix
+contains the A-A block, the B-B block, and the A-B (inter-monomer) block that directly drives a
+Coulombic/excitonic coupling &mdash; no separate combination scheme is required. The upper triangle
+(465 entries) is used as the feature vector. We skip the usual row/column sort-by-norm
+(permutation-invariance) step: every conformer shares an identical atom order, so there is no
+permutation ambiguity to remove, and skipping it keeps each feature tied to the same physical atom
+pair across all samples.</p>
+
+<h2>Model &amp; hyperparameter selection</h2>
+<p>Kernel Ridge Regression with a Laplacian kernel,
+<code>k(x,x') = exp(-||x-x'||<sub>1</sub>/&sigma;)</code>, the classical Coulomb-matrix pairing from
+Rupp et al. A fixed 10% test set (4000 pairs) was held out up front and never used for
+hyperparameter selection or training. Hyperparameters (<code>&gamma;=1/&sigma;</code> and ridge
+regularizer <code>&lambda;</code>) were chosen by 5-fold cross-validated grid search
+(log-spaced grids, <code>&gamma;&isin;[10<sup>-4</sup>,10<sup>-1</sup>]</code>,
+<code>&lambda;&isin;[10<sup>-6</sup>,10<sup>-1</sup>]</code>) on a 2000-sample subset of the
+training pool, then held fixed across the learning curve to bound total compute
+(KRR fitting is O(N<sup>3</sup>)).</p>
+
+<h2>Validation / learning curve protocol</h2>
+<p>For each training size <code>N</code> in a log-spaced sequence (50 to 12800), we drew random
+training subsets from the 36000-pair pool (3 repeats for N&le;3200, 2 for N=6400, 1 for N=12800,
+reduced at large N purely to bound wall-clock time), fit KRR with the fixed hyperparameters, and
+measured MAE against the fixed held-out test set. Mean MAE (min/max across repeats) vs.
+<code>N</code> is plotted on log-log axes at right.</p>
+
+<h2>Results &amp; discussion</h2>
+<p><b>PLACEHOLDER_RESULTS_PARAGRAPH</b></p>
+<p>The learning curve follows the expected power-law decay of MAE with training-set size for
+kernel-based molecular-property regression. The main limitation is KRR's O(N<sup>3</sup>) training
+cost, which caps the largest training size explored here well below the full 36000-pair pool; a
+Nystr&ouml;m approximation or inducing-point Gaussian Process would be the natural next step to
+push further, and re-tuning <code>&lambda;</code> per point (rather than once, globally) would
+likely lower the curve slightly at large N.</p>
+
+</div>
+<div class="col-fig">
+<img src="../results/learning_curve.png">
+<div class="caption">Fig. 1 &mdash; Test MAE vs. number of training pairs (log-log), KRR with
+Laplacian kernel on the supermolecule Coulomb-matrix representation. Error bars show min/max
+across repeats.</div>
+<table class="results-table">
+<thead><tr><th>N (train pairs)</th><th>MAE</th></tr></thead>
+<tbody id="results-tbody">
+PLACEHOLDER_TABLE_ROWS
+</tbody>
+</table>
+</div>
+</div>
+
+</body>
+</html>
