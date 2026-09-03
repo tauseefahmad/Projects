@@ -1,26 +1,23 @@
 package cowboyshootout;
 
-/**
- * A single combatant. The circle itself is modelled as a circular doubly
- * linked list of Cowboy nodes (prev/next), which makes "closing the circle"
- * after a kill an O(1) unlink instead of shifting elements in an array/list.
- */
-final class Cowboy {
+// One fighter standing in the circle. The circle itself is just these
+// objects linked to each other (prev/next), so removing a dead cowboy
+// is as simple as pointing his neighbors at each other.
+class Cowboy {
 
-    final int seatNumber;   // 1-based position in the original circle, used only for display/identification
-    final String name;
+    int id;
+    String name;
     int hp;
-
     Cowboy prev;
     Cowboy next;
 
-    Cowboy(int seatNumber, String name, int hp) {
-        this.seatNumber = seatNumber;
-        this.name = name;
+    Cowboy(int id, int hp) {
+        this.id = id;
+        this.name = "Cowboy-" + id;
         this.hp = hp;
     }
 
-    boolean isEven() {
+    boolean hpIsEven() {
         return hp % 2 == 0;
     }
 

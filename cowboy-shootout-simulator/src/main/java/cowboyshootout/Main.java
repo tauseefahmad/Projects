@@ -1,92 +1,62 @@
 package cowboyshootout;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.SecureRandom;
-import java.time.format.DateTimeFormatter;
 import java.time.LocalDateTime;
-import java.util.List;
+import java.time.format.DateTimeFormatter;
 
-/**
- * Entry point. Run configuration in IntelliJ:
- *   Program arguments: &lt;numberOfCowboys&gt; [randomSeed]
- * <p>
- * Example: {@code 8}                 -> simulate 8 cowboys, random seed
- *          {@code 8 42}              -> simulate 8 cowboys, fixed seed 42 (reproducible run)
- */
-public final class Main {
+// Program arguments: <numberOfCowboys> [seed]
+// Example: 8        -> 8 cowboys, random seed
+//          8 42      -> 8 cowboys, fixed seed (reproducible run)
+public class Main {
 
-    private static final int STARTING_HP = 10;
+    static final int START_HP = 10;
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
         if (args.length < 1) {
-            System.err.println("Usage: java cowboyshootout.Main <numberOfCowboys> [randomSeed]");
-            System.exit(1);
+            System.out.println("usage: java cowboyshootout.Main <numberOfCowboys> [seed]");
             return;
         }
 
-        int cowboyCount;
-        try {
-            cowboyCount = Integer.parseInt(args[0].trim());
-        } catch (NumberFormatException e) {
-            System.err.println("Invalid number of cowboys: '" + args[0] + "' is not an integer.");
-            System.exit(1);
-            return;
-        }
-        if (cowboyCount < 1) {
-            System.err.println("Number of cowboys must be at least 1.");
-            System.exit(1);
-            return;
-        }
+        int cowboys = Integer.parseInt(args[0].trim());
+        long seed = args.length >= 2 ? Long.parseLong(args[1].trim()) : new SecureRandom().nextLong();
 
-        long seed = args.length >= 2
-                ? Long.parseLong(args[1].trim())
-                : new SecureRandom().nextLong();
-
-        System.out.println("=== Wild West Shootout Simulator ===");
-        System.out.println("Cowboys: " + cowboyCount + " | Starting HP: " + STARTING_HP + " | Random seed: " + seed);
+        System.out.println("Wild West Shootout - " + cowboys + " cowboys, " + START_HP + " hp each, seed " + seed);
         System.out.println();
 
-        ShootoutSimulator simulator = new ShootoutSimulator(cowboyCount, STARTING_HP);
-        ShootoutResult result = simulator.run(seed, true);
+        Game game = new Game(cowboys, START_HP);
+        Result result = game.play(seed, true);
 
-        printProtocolToConsole(result);
+        tellStory(result);
 
-        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-        Path protocolFile = Path.of("protocol_" + cowboyCount + "cowboys_" + timestamp + ".json");
-        ProtocolWriter.writeProtocol(result, protocolFile);
-        String checksum = ProtocolWriter.sha256Hex(protocolFile);
-
-        Path checksumFile = Path.of(protocolFile + ".sha256");
-        try {
-            java.nio.file.Files.writeString(checksumFile, checksum + "  " + protocolFile.getFileName() + "\n");
-        } catch (java.io.IOException e) {
-            throw new java.io.UncheckedIOException(e);
-        }
+        String stamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+        Path file = Path.of("protocol_" + cowboys + "cowboys_" + stamp + ".json");
+        Protocol.write(result, file);
+        String hash = Protocol.sha256(file);
+        Files.writeString(Path.of(file + ".sha256"), hash + "  " + file.getFileName() + "\n");
 
         System.out.println();
-        System.out.println("Winner: " + result.winner() + " (" + result.winnerHpRemaining() + " HP remaining)");
-        System.out.println("Total shots fired: " + result.shots().size());
+        System.out.println(result.winner + " wins with " + result.winnerHp + " hp left! (" + result.shots.size() + " shots fired)");
         System.out.println();
-        System.out.println("Protocol written to : " + protocolFile.toAbsolutePath());
-        System.out.println("SHA-256 checksum     : " + checksum);
-        System.out.println("Checksum file        : " + checksumFile.toAbsolutePath());
+        System.out.println("protocol file : " + file.toAbsolutePath());
+        System.out.println("sha-256       : " + hash);
     }
 
-    private static void printProtocolToConsole(ShootoutResult result) {
-        List<String> order = result.initialSeatingOrder();
-        System.out.println("Seating order: " + String.join(" - ", order) + " (circle)");
-        System.out.println("First to draw: " + result.startingCowboy());
+    // print the fight as a little story instead of a bare table of numbers
+    static void tellStory(Result result) {
+        System.out.println("The circle: " + String.join(" - ", result.order));
+        System.out.println(result.starter + " draws first.");
         System.out.println();
 
-        for (ShotRecord s : result.shots()) {
-            StringBuilder line = new StringBuilder();
-            line.append(String.format("Shot #%-3d ", s.shotNumber()));
-            line.append(s.shooter()).append(" (").append(s.shooterHp()).append(" HP) shoots ").append(s.direction());
-            line.append(" -> hits ").append(s.target());
-            line.append(" for ").append(s.damage()).append(" dmg");
-            line.append(" (HP ").append(s.targetHpBefore()).append(" -> ").append(s.targetHpAfter()).append(")");
-            if (s.targetKilled()) {
-                line.append("  [ELIMINATED - circle closes]");
+        for (Shot s : result.shots) {
+            String turn = s.side == Side.RIGHT ? "turns right" : "turns left";
+            String line = s.num + ". " + s.shooter + " (" + s.shooterHp + " hp) " + turn
+                    + " and fires at " + s.target + " -> " + s.dmg + " dmg, "
+                    + s.target + " drops to " + s.hpAfter + " hp";
+            if (s.killed) {
+                line += ". " + s.target + " falls! The circle closes and " + s.shooter + " shoots again.";
             }
             System.out.println(line);
         }
