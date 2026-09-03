@@ -1,0 +1,325 @@
+{
+  "metadata": {
+    "generatedAt": "2026-09-03T18:51:17.176673171Z",
+    "numberOfCowboys": 8,
+    "startingHealthPoints": 10,
+    "minDamagePerShot": 1,
+    "maxDamagePerShot": 5,
+    "randomSeed": 42,
+    "startingCowboy": "Cowboy-6"
+  },
+  "initialSeatingOrder": [
+    "Cowboy-1",
+    "Cowboy-2",
+    "Cowboy-3",
+    "Cowboy-4",
+    "Cowboy-5",
+    "Cowboy-6",
+    "Cowboy-7",
+    "Cowboy-8"
+  ],
+  "shots": [
+    {
+      "shotNumber": 1,
+      "shooter": "Cowboy-6",
+      "shooterHp": 10,
+      "direction": "RIGHT",
+      "target": "Cowboy-7",
+      "damage": 4,
+      "targetHpBefore": 10,
+      "targetHpAfter": 6,
+      "targetKilled": false
+    },
+    {
+      "shotNumber": 2,
+      "shooter": "Cowboy-7",
+      "shooterHp": 6,
+      "direction": "RIGHT",
+      "target": "Cowboy-8",
+      "damage": 4,
+      "targetHpBefore": 10,
+      "targetHpAfter": 6,
+      "targetKilled": false
+    },
+    {
+      "shotNumber": 3,
+      "shooter": "Cowboy-8",
+      "shooterHp": 6,
+      "direction": "RIGHT",
+      "target": "Cowboy-1",
+      "damage": 5,
+      "targetHpBefore": 10,
+      "targetHpAfter": 5,
+      "targetKilled": false
+    },
+    {
+      "shotNumber": 4,
+      "shooter": "Cowboy-1",
+      "shooterHp": 5,
+      "direction": "LEFT",
+      "target": "Cowboy-8",
+      "damage": 1,
+      "targetHpBefore": 6,
+      "targetHpAfter": 5,
+      "targetKilled": false
+    },
+    {
+      "shotNumber": 5,
+      "shooter": "Cowboy-8",
+      "shooterHp": 5,
+      "direction": "LEFT",
+      "target": "Cowboy-7",
+      "damage": 1,
+      "targetHpBefore": 6,
+      "targetHpAfter": 5,
+      "targetKilled": false
+    },
+    {
+      "shotNumber": 6,
+      "shooter": "Cowboy-7",
+      "shooterHp": 5,
+      "direction": "LEFT",
+      "target": "Cowboy-6",
+      "damage": 1,
+      "targetHpBefore": 10,
+      "targetHpAfter": 9,
+      "targetKilled": false
+    },
+    {
+      "shotNumber": 7,
+      "shooter": "Cowboy-6",
+      "shooterHp": 9,
+      "direction": "LEFT",
+      "target": "Cowboy-5",
+      "damage": 4,
+      "targetHpBefore": 10,
+      "targetHpAfter": 6,
+      "targetKilled": false
+    },
+    {
+      "shotNumber": 8,
+      "shooter": "Cowboy-5",
+      "shooterHp": 6,
+      "direction": "RIGHT",
+      "target": "Cowboy-6",
+      "damage": 5,
+      "targetHpBefore": 9,
+      "targetHpAfter": 4,
+      "targetKilled": false
+    },
+    {
+      "shotNumber": 9,
+      "shooter": "Cowboy-6",
+      "shooterHp": 4,
+      "direction": "RIGHT",
+      "target": "Cowboy-7",
+      "damage": 4,
+      "targetHpBefore": 5,
+      "targetHpAfter": 1,
+      "targetKilled": false
+    },
+    {
+      "shotNumber": 10,
+      "shooter": "Cowboy-7",
+      "shooterHp": 1,
+      "direction": "LEFT",
+      "target": "Cowboy-6",
+      "damage": 3,
+      "targetHpBefore": 4,
+      "targetHpAfter": 1,
+      "targetKilled": false
+    },
+    {
+      "shotNumber": 11,
+      "shooter": "Cowboy-6",
+      "shooterHp": 1,
+      "direction": "LEFT",
+      "target": "Cowboy-5",
+      "damage": 3,
+      "targetHpBefore": 6,
+      "targetHpAfter": 3,
+      "targetKilled": false
+    },
+    {
+      "shotNumber": 12,
+      "shooter": "Cowboy-5",
+      "shooterHp": 3,
+      "direction": "LEFT",
+      "target": "Cowboy-4",
+      "damage": 2,
+      "targetHpBefore": 10,
+      "targetHpAfter": 8,
+      "targetKilled": false
+    },
+    {
+      "shotNumber": 13,
+      "shooter": "Cowboy-4",
+      "shooterHp": 8,
+      "direction": "RIGHT",
+      "target": "Cowboy-5",
+      "damage": 3,
+      "targetHpBefore": 3,
+      "targetHpAfter": 0,
+      "targetKilled": true
+    },
+    {
+      "shotNumber": 14,
+      "shooter": "Cowboy-4",
+      "shooterHp": 8,
+      "direction": "RIGHT",
+      "target": "Cowboy-6",
+      "damage": 2,
+      "targetHpBefore": 1,
+      "targetHpAfter": 0,
+      "targetKilled": true
+    },
+    {
+      "shotNumber": 15,
+      "shooter": "Cowboy-4",
+      "shooterHp": 8,
+      "direction": "RIGHT",
+      "target": "Cowboy-7",
+      "damage": 3,
+      "targetHpBefore": 1,
+      "targetHpAfter": 0,
+      "targetKilled": true
+    },
+    {
+      "shotNumber": 16,
+      "shooter": "Cowboy-4",
+      "shooterHp": 8,
+      "direction": "RIGHT",
+      "target": "Cowboy-8",
+      "damage": 2,
+      "targetHpBefore": 5,
+      "targetHpAfter": 3,
+      "targetKilled": false
+    },
+    {
+      "shotNumber": 17,
+      "shooter": "Cowboy-8",
+      "shooterHp": 3,
+      "direction": "LEFT",
+      "target": "Cowboy-4",
+      "damage": 1,
+      "targetHpBefore": 8,
+      "targetHpAfter": 7,
+      "targetKilled": false
+    },
+    {
+      "shotNumber": 18,
+      "shooter": "Cowboy-4",
+      "shooterHp": 7,
+      "direction": "LEFT",
+      "target": "Cowboy-3",
+      "damage": 4,
+      "targetHpBefore": 10,
+      "targetHpAfter": 6,
+      "targetKilled": false
+    },
+    {
+      "shotNumber": 19,
+      "shooter": "Cowboy-3",
+      "shooterHp": 6,
+      "direction": "RIGHT",
+      "target": "Cowboy-4",
+      "damage": 5,
+      "targetHpBefore": 7,
+      "targetHpAfter": 2,
+      "targetKilled": false
+    },
+    {
+      "shotNumber": 20,
+      "shooter": "Cowboy-4",
+      "shooterHp": 2,
+      "direction": "RIGHT",
+      "target": "Cowboy-8",
+      "damage": 1,
+      "targetHpBefore": 3,
+      "targetHpAfter": 2,
+      "targetKilled": false
+    },
+    {
+      "shotNumber": 21,
+      "shooter": "Cowboy-8",
+      "shooterHp": 2,
+      "direction": "RIGHT",
+      "target": "Cowboy-1",
+      "damage": 4,
+      "targetHpBefore": 5,
+      "targetHpAfter": 1,
+      "targetKilled": false
+    },
+    {
+      "shotNumber": 22,
+      "shooter": "Cowboy-1",
+      "shooterHp": 1,
+      "direction": "LEFT",
+      "target": "Cowboy-8",
+      "damage": 2,
+      "targetHpBefore": 2,
+      "targetHpAfter": 0,
+      "targetKilled": true
+    },
+    {
+      "shotNumber": 23,
+      "shooter": "Cowboy-1",
+      "shooterHp": 1,
+      "direction": "LEFT",
+      "target": "Cowboy-4",
+      "damage": 4,
+      "targetHpBefore": 2,
+      "targetHpAfter": 0,
+      "targetKilled": true
+    },
+    {
+      "shotNumber": 24,
+      "shooter": "Cowboy-1",
+      "shooterHp": 1,
+      "direction": "LEFT",
+      "target": "Cowboy-3",
+      "damage": 4,
+      "targetHpBefore": 6,
+      "targetHpAfter": 2,
+      "targetKilled": false
+    },
+    {
+      "shotNumber": 25,
+      "shooter": "Cowboy-3",
+      "shooterHp": 2,
+      "direction": "RIGHT",
+      "target": "Cowboy-1",
+      "damage": 2,
+      "targetHpBefore": 1,
+      "targetHpAfter": 0,
+      "targetKilled": true
+    },
+    {
+      "shotNumber": 26,
+      "shooter": "Cowboy-3",
+      "shooterHp": 2,
+      "direction": "RIGHT",
+      "target": "Cowboy-2",
+      "damage": 1,
+      "targetHpBefore": 10,
+      "targetHpAfter": 9,
+      "targetKilled": false
+    },
+    {
+      "shotNumber": 27,
+      "shooter": "Cowboy-2",
+      "shooterHp": 9,
+      "direction": "LEFT",
+      "target": "Cowboy-3",
+      "damage": 4,
+      "targetHpBefore": 2,
+      "targetHpAfter": 0,
+      "targetKilled": true
+    }
+  ],
+  "result": {
+    "totalShots": 27,
+    "winner": "Cowboy-2",
+    "winnerHpRemaining": 9
+  }
+}
