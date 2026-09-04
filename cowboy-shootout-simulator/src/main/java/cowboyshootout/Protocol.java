@@ -12,7 +12,7 @@ import java.util.List;
 // nobody edited the story afterward
 class Protocol {
 
-    static Path write(Result r, Path file) throws IOException {
+    static Path write(Game.Result r, Path file) throws IOException {
         StringBuilder out = new StringBuilder();
         out.append("{\n");
         out.append("  \"cowboys\": ").append(r.count).append(",\n");
@@ -23,7 +23,7 @@ class Protocol {
 
         out.append("  \"shots\": [\n");
         for (int i = 0; i < r.shots.size(); i++) {
-            Shot s = r.shots.get(i);
+            Game.Shot s = r.shots.get(i);
             out.append("    {");
             out.append("\"num\":").append(s.num).append(",");
             out.append("\"shooter\":").append(quote(s.shooter)).append(",");

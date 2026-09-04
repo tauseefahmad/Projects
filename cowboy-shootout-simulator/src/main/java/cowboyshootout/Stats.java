@@ -24,7 +24,7 @@ public class Stats {
 
         for (int i = 0; i < games; i++) {
             boolean log = i < sample;
-            Result r = game.play(seedGen.nextLong(), log);
+            Game.Result r = game.play(seedGen.nextLong(), log);
 
             int winnerSeat = Integer.parseInt(r.winner.substring("Cowboy-".length()));
             int starterSeat = Integer.parseInt(r.starter.substring("Cowboy-".length()));
@@ -32,7 +32,7 @@ public class Stats {
 
             if (log) {
                 shotsInSample += r.shots.size();
-                if (!r.shots.isEmpty() && r.shots.get(0).side == Side.RIGHT) firstShotRight++;
+                if (!r.shots.isEmpty() && r.shots.get(0).side == Game.Side.RIGHT) firstShotRight++;
             }
         }
 

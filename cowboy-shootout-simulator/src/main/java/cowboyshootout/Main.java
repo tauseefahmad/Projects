@@ -27,7 +27,7 @@ public class Main {
         System.out.println();
 
         Game game = new Game(cowboys, START_HP);
-        Result result = game.play(seed, true);
+        Game.Result result = game.play(seed, true);
 
         tellStory(result);
 
@@ -45,13 +45,13 @@ public class Main {
     }
 
     // print the fight as a little story instead of a bare table of numbers
-    static void tellStory(Result result) {
+    static void tellStory(Game.Result result) {
         System.out.println("The circle: " + String.join(" - ", result.order));
         System.out.println(result.starter + " draws first.");
         System.out.println();
 
-        for (Shot s : result.shots) {
-            String turn = s.side == Side.RIGHT ? "turns right" : "turns left";
+        for (Game.Shot s : result.shots) {
+            String turn = s.side == Game.Side.RIGHT ? "turns right" : "turns left";
             String line = s.num + ". " + s.shooter + " (" + s.shooterHp + " hp) " + turn
                     + " and fires at " + s.target + " -> " + s.dmg + " dmg, "
                     + s.target + " drops to " + s.hpAfter + " hp";

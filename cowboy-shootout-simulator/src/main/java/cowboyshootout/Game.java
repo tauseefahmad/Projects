@@ -81,4 +81,48 @@ class Game {
         r.winnerHp = active.hp;
         return r;
     }
+
+    // which neighbor got shot at
+    enum Side {
+        LEFT,
+        RIGHT
+    }
+
+    // one line of the protocol: who shot who, and what happened
+    static class Shot {
+        int num;
+        String shooter;
+        int shooterHp;
+        Side side;
+        String target;
+        int dmg;
+        int hpBefore;
+        int hpAfter;
+        boolean killed;
+
+        Shot(int num, String shooter, int shooterHp, Side side, String target,
+             int dmg, int hpBefore, int hpAfter, boolean killed) {
+            this.num = num;
+            this.shooter = shooter;
+            this.shooterHp = shooterHp;
+            this.side = side;
+            this.target = target;
+            this.dmg = dmg;
+            this.hpBefore = hpBefore;
+            this.hpAfter = hpAfter;
+            this.killed = killed;
+        }
+    }
+
+    // everything that happened during one game
+    static class Result {
+        int count;
+        int startHp;
+        long seed;
+        List<String> order;
+        String starter;
+        List<Shot> shots;
+        String winner;
+        int winnerHp;
+    }
 }

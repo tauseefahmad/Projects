@@ -37,14 +37,19 @@ verifies with `sha256sum -c protocol_8cowboys_seed42.json.sha256`.
 ```
 src/main/java/cowboyshootout/
   Cowboy.java     one fighter: id, name, hp, prev/next link in the circle
-  Side.java       LEFT / RIGHT enum
-  Shot.java       one line of the protocol (who shot who, what happened)
-  Result.java     everything that happened in one game
-  Game.java       the actual game rules, plays one game and returns a Result
+  Game.java       the game rules; plays one game and returns a Game.Result
+                  (also holds the small Side/Shot/Result types it works with)
   Protocol.java   writes the JSON file and computes its SHA-256 checksum
   Main.java       CLI entry point, prints the story and calls Protocol
   Stats.java      extra: runs many games to check whether it's fair
 ```
+
+`Side` (LEFT/RIGHT), `Shot` (one protocol line) and `Result` (the outcome
+of a game) are nested inside `Game` rather than top-level files — they're
+small data types that only ever appear alongside `Game`, so folding them
+in means one less file to open for the same amount of code. `Protocol`,
+`Main`, and `Stats` refer to them as `Game.Side`, `Game.Shot`,
+`Game.Result`.
 
 ## Design decisions (and why)
 
