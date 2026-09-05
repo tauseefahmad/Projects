@@ -7,14 +7,22 @@ protocol file.
 ## How to run it
 
 **In IntelliJ:** open this folder as a project (`File > Open`, select
-`cowboy-shootout-simulator`), mark `src/main/java` as *Sources Root* if it
-isn't picked up automatically, then create a Run Configuration for
-`cowboyshootout.Main` with a program argument for the number of cowboys.
+`cowboy-shootout-simulator` — IntelliJ will recognize the `pom.xml` and
+import it as a Maven project automatically, downloading JUnit for you),
+then create a Run Configuration for `cowboyshootout.Main` with a program
+argument for the number of cowboys.
 
-**From the command line:**
+**From the command line, with Maven** (also runs the tests, see below):
 
 ```
-javac -d out $(find src -name "*.java")
+mvn compile
+java -cp target/classes cowboyshootout.Main 8
+```
+
+**From the command line, without Maven** (just the program, no tests):
+
+```
+javac -d out $(find src/main -name "*.java")
 java -cp out cowboyshootout.Main 8
 ```
 
@@ -35,6 +43,7 @@ verifies with `sha256sum -c protocol_8cowboys_seed42.json.sha256`.
 ## Project structure
 
 ```
+pom.xml                          only needed for running the tests (see below)
 src/main/java/cowboyshootout/
   Cowboy.java     one fighter: id, name, hp, prev/next link in the circle
   Game.java       the game rules; plays one game and returns a Game.Result
@@ -42,6 +51,10 @@ src/main/java/cowboyshootout/
   Protocol.java   writes the JSON file and computes its SHA-256 checksum
   Main.java       CLI entry point, prints the story and calls Protocol
   Stats.java      extra: runs many games to check whether it's fair
+src/test/java/cowboyshootout/
+  CowboyTest.java   hp parity, name/toString
+  GameTest.java     game rules: direction, damage bounds, kills, reproducibility
+  ProtocolTest.java JSON output shape, checksum properties
 ```
 
 `Side` (LEFT/RIGHT), `Shot` (one protocol line) and `Result` (the outcome
@@ -50,6 +63,43 @@ small data types that only ever appear alongside `Game`, so folding them
 in means one less file to open for the same amount of code. `Protocol`,
 `Main`, and `Stats` refer to them as `Game.Side`, `Game.Shot`,
 `Game.Result`.
+
+## Tests
+
+Run them with:
+
+```
+mvn test
+```
+
+`pom.xml` only exists to pull in JUnit 5 (`org.junit.jupiter:junit-jupiter`,
+test scope) and run it — the program itself has no dependencies and still
+compiles fine with plain `javac` as shown above. IntelliJ auto-detects the
+`pom.xml` and lets you run/debug individual tests from the gutter icons.
+
+What's covered:
+
+- **`CowboyTest`** — `hpIsEven()` on even/odd hp, and that the name/`toString()`
+  come out as `"Cowboy-<id>"`.
+- **`GameTest`** — the actual rules: a lone cowboy wins instantly with no
+  shots fired; the same seed always replays identically (checked by
+  comparing every shot, not just the winner); every damage roll lands in
+  1–5; hp is never reported negative; exactly `count - 1` cowboys get
+  killed per game (there's always exactly one survivor); and — since every
+  cowboy starts at an even 10 hp — the very first shot of a game always
+  goes `RIGHT`, checked across several different seeds. Also checks that
+  `Game`'s constructor rejects 0 cowboys or 0 starting hp.
+- **`ProtocolTest`** — the written file starts/ends with `{`/`}`, has
+  balanced braces and brackets, and contains the fields we expect; hashing
+  the same content twice gives the same SHA-256 checksum, hashing
+  different content gives a different one, and the checksum always looks
+  like 64 lowercase hex characters.
+
+These are unit tests against the game logic and file output directly —
+they don't re-validate the JSON with a real parser (that was done manually
+with `python3 -m json.tool` against `sample-output/`, see above), and they
+don't test `Stats.java` (it's a statistical tool, not something with a
+single correct output to assert against).
 
 ## Design decisions (and why)
 
