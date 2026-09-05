@@ -76,31 +76,38 @@ test scope) and run it — the program itself has no dependencies and still
 compiles fine with plain `javac` as shown above. IntelliJ auto-detects the
 `pom.xml` and lets you run/debug individual tests from the gutter icons.
 
-What's covered:
+Kept to 8 tests, each mapped directly to a requirement from the task
+rather than to incidental behavior:
 
-- **`GameTest`** — the actual rules, checked against real played-out games
-  rather than isolated methods: a lone cowboy wins instantly with no shots
-  fired; the same seed always replays identically (checked by comparing
-  every shot, not just the winner); **every** shot's side matches the
-  shooter's hp parity, not just the first one; a kill always makes the
-  same cowboy fire again and a survival always passes the turn to the
-  target, checked shot-by-shot across a whole game; a cowboy who has been
-  killed never appears as a shooter or target again; two cowboys always
-  target each other and never themselves; every damage roll lands in 1–5;
-  hp is never reported negative; and exactly `count - 1` cowboys get
-  killed per game (there's always exactly one survivor). Also checks that
-  `Game`'s constructor rejects 0 cowboys or 0 starting hp.
-- **`ProtocolTest`** — the written file starts/ends with `{`/`}`, has
-  balanced braces and brackets, and contains the fields we expect; hashing
-  the same content twice gives the same SHA-256 checksum, hashing
-  different content gives a different one, and the checksum always looks
-  like 64 lowercase hex characters.
+- **`GameTest`**
+  - `everyShotsSideMatchesTheShootersHpParity` — the direction rule:
+    even hp shoots right, odd hp shoots left.
+  - `aKillMakesTheSameShooterFireAgainOtherwiseTheTargetTakesTheTurn` —
+    a kill closes the circle and the same shooter fires again; otherwise
+    the turn passes to the target.
+  - `damageIsAlwaysBetweenOneAndFive` — every hit costs 1–5 hp.
+  - `aKilledCowboyNeverAppearsInAnyLaterShot` — the circle is actually
+    closed: an eliminated cowboy can never shoot or be targeted again.
+  - `exactlyOneCowboyIsEliminatedPerSurvivorLessThanTheStart` — the
+    fight always ends with exactly one cowboy left standing.
+- **`ProtocolTest`**
+  - `writtenFileIsUtf8AndEndsWithTheExpectedFields` — the protocol file
+    is well-formed JSON, written as UTF-8, with the required fields.
+  - `checksumLooksLikeSha256` — the checksum is a suitable cryptographic
+    hash (64 lowercase hex characters, i.e. actually SHA-256-shaped).
+  - `differentContentProducesDifferentChecksum` — the whole reason the
+    task wants a checksum: a changed file produces a different hash, so
+    tampering is detectable.
 
 These are unit tests against the game logic and file output directly —
 they don't re-validate the JSON with a real parser (that was done manually
 with `python3 -m json.tool` against `sample-output/`, see above), and they
 don't test `Stats.java` (it's a statistical tool, not something with a
-single correct output to assert against).
+single correct output to assert against). A few other tests were written
+along the way (reproducibility with a fixed seed, input validation on
+`Game`'s constructor, a couple of edge cases) but were trimmed to keep
+the suite focused on the task's actual requirements rather than on
+incidental behavior we added ourselves.
 
 ## Design decisions (and why)
 

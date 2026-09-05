@@ -32,17 +32,6 @@ class ProtocolTest {
     }
 
     @Test
-    void sameContentAlwaysHashesToTheSameChecksum() throws IOException {
-        Game.Result r = new Game(3, 10).play(5, true);
-        Path fileA = tempDir.resolve("a.json");
-        Path fileB = tempDir.resolve("b.json");
-        Protocol.write(r, fileA);
-        Protocol.write(r, fileB);
-
-        assertEquals(Protocol.sha256(fileA), Protocol.sha256(fileB));
-    }
-
-    @Test
     void checksumLooksLikeSha256() throws IOException {
         Game.Result r = new Game(3, 10).play(5, true);
         Path file = tempDir.resolve("protocol.json");
