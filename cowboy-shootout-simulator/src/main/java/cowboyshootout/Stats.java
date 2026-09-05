@@ -64,6 +64,8 @@ public class Stats {
         return Math.floorMod(winnerSeat - starterSeat, cowboyCount);
     }
 
+    private static final int CHART_WIDTH = 40;
+
     private static void printReport(int cowboyCount, int gameCount, long[] winsBySeatOffset, ShotSample shotSample) {
         System.out.println(cowboyCount + " cowboys, " + gameCount + " games played "
                 + "(plus " + shotSample.gamesPlayed + " more, sampled separately for shot-level stats)");
@@ -73,12 +75,41 @@ public class Stats {
         System.out.printf("average shots per game: %.1f%n", shotSample.averageShotsPerGame());
         System.out.println();
         System.out.println("win rate by seat, counted from the starter (seat 0 = the starter, seat 1 = the starter's right neighbour):");
+        System.out.println();
 
+        double[] winPercentBySeat = new double[cowboyCount];
         double fairSharePercent = 100.0 / cowboyCount;
+        double highestPercent = fairSharePercent;
         for (int seat = 0; seat < cowboyCount; seat++) {
-            double winPercent = 100.0 * winsBySeatOffset[seat] / gameCount;
-            System.out.printf("  seat %-2d: %5.1f%%   (fair share: %.1f%%)%n", seat, winPercent, fairSharePercent);
+            winPercentBySeat[seat] = 100.0 * winsBySeatOffset[seat] / gameCount;
+            highestPercent = Math.max(highestPercent, winPercentBySeat[seat]);
         }
+
+        for (int seat = 0; seat < cowboyCount; seat++) {
+            String bar = winRateBar(winPercentBySeat[seat], fairSharePercent, highestPercent);
+            System.out.printf("  seat %-2d %5.1f%%  %s%n", seat, winPercentBySeat[seat], bar);
+        }
+        System.out.printf("  (# = win rate, | = fair share if seat didn't matter = %.1f%%)%n", fairSharePercent);
+    }
+
+    // One text row of the bar chart: a run of '#' proportional to this
+    // seat's win rate, with '|' marking where the fair-share line falls
+    // so an over- or under-performing seat is visible at a glance.
+    private static String winRateBar(double winPercent, double fairSharePercent, double highestPercent) {
+        int filledColumns = (int) Math.round(CHART_WIDTH * winPercent / highestPercent);
+        int fairShareColumn = (int) Math.round(CHART_WIDTH * fairSharePercent / highestPercent);
+
+        StringBuilder bar = new StringBuilder(CHART_WIDTH);
+        for (int column = 0; column < CHART_WIDTH; column++) {
+            if (column < filledColumns) {
+                bar.append('#');
+            } else if (column == fairShareColumn) {
+                bar.append('|');
+            } else {
+                bar.append(' ');
+            }
+        }
+        return bar.toString();
     }
 
     // Bundles the results of sampleShots() so they don't have to be passed

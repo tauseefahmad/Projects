@@ -186,15 +186,15 @@ starter's right neighbor = the very first target, and so on around the
 circle):
 
 ```
-8 cowboys, 100000 games
-  seat 0:   7.4%   (fair share: 12.5%)
-  seat 1:   3.5%   (fair share: 12.5%)   <- first victim, worst odds
-  seat 2:  10.0%   (fair share: 12.5%)
-  seat 3:  15.2%   (fair share: 12.5%)
-  seat 4:  18.2%   (fair share: 12.5%)   <- best odds
-  seat 5:  18.3%   (fair share: 12.5%)   <- best odds
-  seat 6:  15.5%   (fair share: 12.5%)
-  seat 7:  11.9%   (fair share: 12.5%)
+  seat 0    7.4%  ################            |
+  seat 1    3.4%  ########                    |            <- first victim, worst odds
+  seat 2   10.3%  #######################     |
+  seat 3   15.4%  ##################################
+  seat 4   18.0%  ########################################  <- best odds
+  seat 5   17.9%  ########################################  <- best odds
+  seat 6   15.8%  ###################################
+  seat 7   11.7%  ##########################  |
+  (# = win rate, | = fair share if seat didn't matter = 12.5%)
 ```
 
 The same shape shows up at other cowboy counts (tried 6 and 12): the
