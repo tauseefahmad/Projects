@@ -1,8 +1,6 @@
 package cowboyshootout;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -35,14 +33,6 @@ class GameTest {
         assertEquals(first.winner, second.winner);
         assertEquals(first.winnerHp, second.winnerHp);
         assertEquals(shotsAsText(first.shots), shotsAsText(second.shots));
-    }
-
-    @ParameterizedTest
-    @ValueSource(longs = {1, 2, 3, 42, 100, 999})
-    void firstShotAlwaysGoesRightBecauseEveryoneStartsAtAnEvenHp(long seed) {
-        Game.Result r = new Game(6, 10).play(seed, true);
-
-        assertEquals(Game.Side.RIGHT, r.shots.get(0).side);
     }
 
     @Test

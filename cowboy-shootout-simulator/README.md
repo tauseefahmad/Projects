@@ -87,10 +87,8 @@ What's covered:
   target, checked shot-by-shot across a whole game; a cowboy who has been
   killed never appears as a shooter or target again; two cowboys always
   target each other and never themselves; every damage roll lands in 1–5;
-  hp is never reported negative; exactly `count - 1` cowboys get killed
-  per game (there's always exactly one survivor); and — since every cowboy
-  starts at an even 10 hp — the very first shot of a game always goes
-  `RIGHT`, checked across several different seeds. Also checks that
+  hp is never reported negative; and exactly `count - 1` cowboys get
+  killed per game (there's always exactly one survivor). Also checks that
   `Game`'s constructor rejects 0 cowboys or 0 starting hp.
 - **`ProtocolTest`** — the written file starts/ends with `{`/`}`, has
   balanced braces and brackets, and contains the fields we expect; hashing
