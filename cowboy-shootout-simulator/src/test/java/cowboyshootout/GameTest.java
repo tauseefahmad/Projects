@@ -5,9 +5,12 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -74,6 +77,52 @@ class GameTest {
     void winnerAlwaysEndsWithPositiveHp() {
         Game.Result r = new Game(8, 10).play(7, true);
         assertTrue(r.winnerHp > 0);
+    }
+
+    @Test
+    void everyShotsSideMatchesTheShootersHpParity() {
+        Game.Result r = new Game(10, 10).play(7, true);
+
+        for (Game.Shot s : r.shots) {
+            Game.Side expected = (s.shooterHp % 2 == 0) ? Game.Side.RIGHT : Game.Side.LEFT;
+            assertEquals(expected, s.side, "wrong side for shooterHp=" + s.shooterHp + " in shot " + s.num);
+        }
+    }
+
+    @Test
+    void aKillMakesTheSameShooterFireAgainOtherwiseTheTargetTakesTheTurn() {
+        Game.Result r = new Game(8, 10).play(7, true);
+
+        for (int i = 0; i < r.shots.size() - 1; i++) {
+            Game.Shot current = r.shots.get(i);
+            Game.Shot next = r.shots.get(i + 1);
+            String expectedNextShooter = current.killed ? current.shooter : current.target;
+            assertEquals(expectedNextShooter, next.shooter, "wrong next shooter after shot " + current.num);
+        }
+    }
+
+    @Test
+    void aKilledCowboyNeverAppearsInAnyLaterShot() {
+        Game.Result r = new Game(8, 10).play(7, true);
+
+        Set<String> eliminated = new HashSet<>();
+        for (Game.Shot s : r.shots) {
+            assertFalse(eliminated.contains(s.shooter), s.shooter + " fired after being eliminated (shot " + s.num + ")");
+            assertFalse(eliminated.contains(s.target), s.target + " was targeted after being eliminated (shot " + s.num + ")");
+            if (s.killed) {
+                eliminated.add(s.target);
+            }
+        }
+    }
+
+    @Test
+    void twoCowboysAlwaysTargetEachOther() {
+        Game.Result r = new Game(2, 10).play(3, true);
+
+        assertTrue(r.shots.size() >= 1);
+        for (Game.Shot s : r.shots) {
+            assertFalse(s.shooter.equals(s.target), "a cowboy can't shoot themself");
+        }
     }
 
     @Test

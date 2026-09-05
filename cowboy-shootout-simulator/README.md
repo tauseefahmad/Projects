@@ -52,8 +52,7 @@ src/main/java/cowboyshootout/
   Main.java       CLI entry point, prints the story and calls Protocol
   Stats.java      extra: runs many games to check whether it's fair
 src/test/java/cowboyshootout/
-  CowboyTest.java   hp parity, name/toString
-  GameTest.java     game rules: direction, damage bounds, kills, reproducibility
+  GameTest.java     the game rules: direction, turn order, damage bounds, kills, reproducibility
   ProtocolTest.java JSON output shape, checksum properties
 ```
 
@@ -79,15 +78,19 @@ compiles fine with plain `javac` as shown above. IntelliJ auto-detects the
 
 What's covered:
 
-- **`CowboyTest`** — `hpIsEven()` on even/odd hp, and that the name/`toString()`
-  come out as `"Cowboy-<id>"`.
-- **`GameTest`** — the actual rules: a lone cowboy wins instantly with no
-  shots fired; the same seed always replays identically (checked by
-  comparing every shot, not just the winner); every damage roll lands in
-  1–5; hp is never reported negative; exactly `count - 1` cowboys get
-  killed per game (there's always exactly one survivor); and — since every
-  cowboy starts at an even 10 hp — the very first shot of a game always
-  goes `RIGHT`, checked across several different seeds. Also checks that
+- **`GameTest`** — the actual rules, checked against real played-out games
+  rather than isolated methods: a lone cowboy wins instantly with no shots
+  fired; the same seed always replays identically (checked by comparing
+  every shot, not just the winner); **every** shot's side matches the
+  shooter's hp parity, not just the first one; a kill always makes the
+  same cowboy fire again and a survival always passes the turn to the
+  target, checked shot-by-shot across a whole game; a cowboy who has been
+  killed never appears as a shooter or target again; two cowboys always
+  target each other and never themselves; every damage roll lands in 1–5;
+  hp is never reported negative; exactly `count - 1` cowboys get killed
+  per game (there's always exactly one survivor); and — since every cowboy
+  starts at an even 10 hp — the very first shot of a game always goes
+  `RIGHT`, checked across several different seeds. Also checks that
   `Game`'s constructor rejects 0 cowboys or 0 starting hp.
 - **`ProtocolTest`** — the written file starts/ends with `{`/`}`, has
   balanced braces and brackets, and contains the fields we expect; hashing
