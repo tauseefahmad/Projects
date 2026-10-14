@@ -1,0 +1,18 @@
+<resources>
+    <string name="app_name">PDF Reader</string>
+    <string name="open_pdf">Open PDF</string>
+    <string name="go_to_page">Go to page</string>
+    <string name="dark_pages">Dark pages</string>
+    <string name="close_document">Close document</string>
+    <string name="empty_title">No document open</string>
+    <string name="empty_subtitle">Open a PDF from your device, or pick one you read recently.</string>
+    <string name="recent">Recent</string>
+    <string name="clear_recent">Clear</string>
+    <string name="page_indicator">%1$d / %2$d</string>
+    <string name="page_number_hint">Page (1–%1$d)</string>
+    <string name="go">Go</string>
+    <string name="cancel">Cancel</string>
+    <string name="error_password">This PDF is password-protected and can\'t be opened.</string>
+    <string name="error_open">Couldn\'t open this file. It may be damaged or no longer available.</string>
+    <string name="recent_item">%1$s · page %2$d</string>
+</resources>

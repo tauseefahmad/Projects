@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/action_open"
+        android:icon="@drawable/ic_folder_open"
+        android:title="@string/open_pdf"
+        app:showAsAction="ifRoom" />
+    <item
+        android:id="@+id/action_go_to_page"
+        android:title="@string/go_to_page"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_dark_pages"
+        android:checkable="true"
+        android:title="@string/dark_pages"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_close"
+        android:title="@string/close_document"
+        app:showAsAction="never" />
+</menu>
