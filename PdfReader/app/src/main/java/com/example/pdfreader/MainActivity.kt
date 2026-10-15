@@ -87,6 +87,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var sideProgress: View
     private lateinit var sideEmpty: TextView
     private lateinit var sideTabs: TabLayout
+    private lateinit var annotationsPanel: View
     private val outlineAdapter = OutlineAdapter { node -> node.page?.let { openFromPanel(it) } }
     private lateinit var bookmarkAdapter: BookmarkAdapter
     private var outlineLoaded = false
@@ -181,6 +182,22 @@ class MainActivity : AppCompatActivity() {
         },
     )
 
+    private val annotate = AnnotateController(
+        activity = this,
+        viewModelProvider = { viewModel },
+        canOverwrite = { it.contentUri == it.uri && canWrite(it.uri) },
+        goToPage = { goToPage(it) },
+        openPanel = {
+            sideTabs.getTabAt(TAB_ANNOTATIONS)?.select()
+            openSidePanel()
+        },
+        onModeChanged = ::onAnnotateModeChanged,
+    )
+
+    /** For tests: the open document's annotations and the annotate-mode controller. */
+    internal val annotationSession: AnnotationSession? get() = shownReady?.annotations
+    internal val annotateController: AnnotateController get() = annotate
+
     private fun openOrganizer() {
         val ready = shownReady ?: return
         // Decrypted copies of protected files can only be saved as a copy, never over the original.
@@ -214,6 +231,7 @@ class MainActivity : AppCompatActivity() {
         textSelection = TextSelectionController(this, pages, findViewById(R.id.selectionHandles), lifecycleScope) { shownReady?.structure }
         pages.viewportChangedListeners += { textSelection.onViewportChanged() }
         pages.onLongPress = { x, y -> textSelection.startAt(x, y) }
+        textSelection.onMarkup = annotate::addMarkup
         pages.onSingleTap = ::onPageTap
         onBackPressedDispatcher.addCallback(this, exitFullScreenOnBack)
 
@@ -227,6 +245,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         setUpMenu()
+        annotate.attach(pages, root)
 
         findViewById<View>(R.id.openButton).setOnClickListener { launchPicker() }
         findViewById<View>(R.id.openUrlButton).setOnClickListener { showOpenUrlDialog() }
@@ -265,6 +284,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
+        shownReady?.annotations?.writeDraftNow()
         if (shownDocument != null) {
             viewModel.updatePage(currentPage())
             viewModel.updateZoom(zoom.state)
@@ -281,6 +301,7 @@ class MainActivity : AppCompatActivity() {
             }
             return super.dispatchKeyEvent(event)
         }
+        if (annotate.handleKey(event)) return true
         val spreads = adapter?.spreads
         if (spreads != null && shownDocument != null) {
             val action = KeyNavigation.actionFor(event.keyCode, event.isCtrlPressed, event.isShiftPressed, settings.volumeKeysTurnPages)
@@ -323,6 +344,7 @@ class MainActivity : AppCompatActivity() {
         bookmarkList = findViewById(R.id.bookmarks)
         sideProgress = findViewById(R.id.sideProgress)
         sideEmpty = findViewById(R.id.sideEmpty)
+        annotationsPanel = findViewById(R.id.annotationsPanel)
         outlineList.layoutManager = LinearLayoutManager(this)
         outlineList.adapter = outlineAdapter
         bookmarkAdapter = BookmarkAdapter(
@@ -341,6 +363,7 @@ class MainActivity : AppCompatActivity() {
             R.drawable.ic_toc to R.string.tab_outline,
             R.drawable.ic_bookmark_border to R.string.tab_bookmarks,
             R.drawable.ic_search to R.string.tab_search,
+            R.drawable.ic_list to R.string.tab_annotations,
         )) {
             tabs.addTab(tabs.newTab().setIcon(icon).setContentDescription(label))
         }
@@ -374,6 +397,8 @@ class MainActivity : AppCompatActivity() {
         outlineList.isVisible = position == TAB_OUTLINE && !outlineAdapter.isEmpty
         bookmarkList.isVisible = position == TAB_BOOKMARKS && bookmarkAdapter.itemCount > 0
         searchResultsList.isVisible = position == TAB_SEARCH && searchResultAdapter.itemCount > 0
+        annotationsPanel.isVisible = position == TAB_ANNOTATIONS
+        if (position == TAB_ANNOTATIONS) annotate.refreshPanel()
         sideProgress.isVisible = false
         sideEmpty.isVisible = false
         when (position) {
@@ -466,6 +491,8 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
+    fun closeSidePanel() = drawer.closeDrawer(GravityCompat.START)
+
     private fun openSidePanel() {
         scrollThumbnailsToCurrent()
         drawer.openDrawer(GravityCompat.START)
@@ -491,13 +518,17 @@ class MainActivity : AppCompatActivity() {
                 R.id.action_bookmark -> toggleBookmark()
                 R.id.action_rotate -> rotateView()
                 R.id.action_organize -> openOrganizer()
+                R.id.action_annotate -> annotate.start()
                 R.id.tool_merge -> tools.showMerge()
                 R.id.tool_split -> tools.showSplit()
                 R.id.tool_crop -> tools.showCrop()
                 R.id.tool_resize -> tools.showResize()
                 R.id.tool_stamp -> tools.showStamp()
                 R.id.tool_watermark -> tools.showWatermark()
-                R.id.action_full_screen -> setFullScreen(true)
+                R.id.action_full_screen -> {
+                    if (annotate.isActive) annotate.finish()
+                    if (!annotate.isActive) setFullScreen(true)
+                }
                 R.id.action_keep_screen_on -> {
                     settings.keepScreenOn = !settings.keepScreenOn
                     updateKeepScreenOn()
@@ -606,16 +637,17 @@ class MainActivity : AppCompatActivity() {
         progress.isVisible = state is ReaderState.Loading || state is ReaderState.Downloading
         val ready = state as? ReaderState.Ready
         pages.isVisible = ready != null
-        navBar.isVisible = ready != null && !viewModel.fullScreen
+        navBar.isVisible = ready != null && !viewModel.fullScreen && !viewModel.annotating
         emptyState.isVisible = state is ReaderState.Empty || state is ReaderState.Error || state is ReaderState.NeedsPassword
         toolbar.menu.findItem(R.id.action_go_to_page).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_zoom).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_bookmark).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_search).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_rotate).isVisible = ready != null
-        for (id in listOf(R.id.action_document, R.id.action_full_screen, R.id.action_organize, R.id.action_tools)) {
+        for (id in listOf(R.id.action_annotate, R.id.action_document, R.id.action_full_screen, R.id.action_organize, R.id.action_tools)) {
             toolbar.menu.findItem(id).isVisible = ready != null
         }
+        toolbar.menu.findItem(R.id.action_annotate).isVisible = ready != null && !viewModel.annotating
         toolbar.menu.findItem(R.id.action_close).isVisible = ready != null
         toolbar.title = ready?.name ?: getString(R.string.app_name)
         if (ready != null) {
@@ -648,6 +680,7 @@ class MainActivity : AppCompatActivity() {
             sideTabs.getTabAt(TAB_PAGES)?.select()
             showSideTab(TAB_PAGES)
             updateBookmarkButton()
+            annotate.bind(ready)
         }
 
         if (state is ReaderState.Error) {
@@ -755,6 +788,7 @@ class MainActivity : AppCompatActivity() {
             it.darkPages = settings.darkPages
             it.sepiaPages = settings.theme == AppTheme.SEPIA
             it.highlightProvider = ::highlightsFor
+            it.annotationLayer = annotate
             it.rotation = viewModel.viewRotation
         }
         pages.adapter = adapter
@@ -762,7 +796,7 @@ class MainActivity : AppCompatActivity() {
         zoom.adapter = adapter
 
         fastScroll.pageCount = document.pageCount
-        fastScroll.isVisible = !single && document.pageCount > 2
+        fastScroll.isVisible = !single && document.pageCount > 2 && !viewModel.annotating
 
         scrollToItem(spreads.itemForPage(page))
         val newAdapter = adapter
@@ -936,6 +970,7 @@ class MainActivity : AppCompatActivity() {
             textSelection.clear()
             return
         }
+        if (annotate.onTap(x, y)) return
         val hit = pages.pageViewAt(x, y)
         val structure = shownReady?.structure
         lifecycleScope.launch {
@@ -967,6 +1002,20 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // --- Annotate mode -------------------------------------------------------------------------
+
+    /** The annotation tools replace the page navigation bar while annotating. */
+    private fun onAnnotateModeChanged(on: Boolean) {
+        if (on) {
+            if (viewModel.fullScreen) setFullScreen(false)
+            textSelection.clear()
+        }
+        navBar.isVisible = !on && shownReady != null && !viewModel.fullScreen
+        val document = shownDocument
+        fastScroll.isVisible = !on && document != null && settings.viewMode != ViewMode.SINGLE_PAGE && document.pageCount > 2
+        toolbar.menu.findItem(R.id.action_annotate)?.isVisible = !on && shownReady != null
+    }
+
     // --- Full screen -------------------------------------------------------------------------
 
     private val exitFullScreenOnBack = object : androidx.activity.OnBackPressedCallback(false) {
@@ -978,7 +1027,7 @@ class MainActivity : AppCompatActivity() {
         val enable = on && shownReady != null
         viewModel.fullScreen = enable
         toolbar.isVisible = !enable
-        navBar.isVisible = !enable && shownReady != null
+        navBar.isVisible = !enable && shownReady != null && !viewModel.annotating
         if (enable) closeSearch()
         val controller = WindowCompat.getInsetsController(window, window.decorView)
         if (enable) {
@@ -1186,6 +1235,7 @@ class MainActivity : AppCompatActivity() {
         const val TAB_OUTLINE = 1
         const val TAB_BOOKMARKS = 2
         const val TAB_SEARCH = 3
+        const val TAB_ANNOTATIONS = 4
         const val SEARCH_DELAY_MS = 350L
         const val EDGE_TAP_ZONE = 0.25f
     }

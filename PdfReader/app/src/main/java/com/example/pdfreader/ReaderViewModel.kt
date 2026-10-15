@@ -25,6 +25,8 @@ sealed interface ReaderState {
         val document: PdfDocument,
         val structure: PdfStructure,
         val contentUri: Uri = uri,
+        /** Editable annotations; the pages in [document] are rendered without them. */
+        val annotations: AnnotationSession? = null,
     ) : ReaderState
 
     /** The file is encrypted; ask for its password. */
@@ -47,6 +49,12 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
     /** Immersive full-screen reading is on. */
     var fullScreen = false
 
+    /** Annotate mode is on (survives rotation; ends when another document opens). */
+    var annotating = false
+
+    /** The pending "save a copy" of annotations is the flattened kind. */
+    var pendingFlattenCopy = false
+
     /** Clockwise view rotation of the open document (display only; the file is unchanged). */
     var viewRotation = 0
 
@@ -63,12 +71,19 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
 
     private var unlockedFile: java.io.File? = null
 
+    /** Copy of the file without its editable annotations, which is what the screen renders. */
+    private var renderFile: java.io.File? = null
+
+    /** Drafts must be written even while the screen is being torn down, so not viewModelScope. */
+    private val draftScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.Main.immediate)
+
     fun open(uri: Uri, name: String, password: String? = null) {
         val current = _state.value
         if (current is ReaderState.Ready && current.uri == uri) return
         savePage()
         closeCurrent()
         viewRotation = 0
+        annotating = false
         _state.value = ReaderState.Loading
         viewModelScope.launch {
             _state.value = try {
@@ -87,13 +102,30 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
                     contentUri = Uri.fromFile(file)
                     PdfDocument.open(getApplication(), contentUri)
                 }
+                val loaded = withContext(Dispatchers.IO) { AnnotationSession.load(getApplication(), uri, contentUri) }
+                val shown = loaded.renderFile?.let { file ->
+                    try {
+                        PdfDocument.open(getApplication(), Uri.fromFile(file)).also {
+                            document.close()
+                            renderFile = file
+                        }
+                    } catch (e: Exception) {
+                        file.delete()
+                        null
+                    }
+                } ?: document
+                // If the stripped copy couldn't be used, the file's annotations stay as they are
+                // and can't be edited (saving would otherwise drop them).
+                val session = if (loaded.renderFile != null && shown === document) null else AnnotationSession(
+                    getApplication(), draftScope, uri, loaded.annotations, loaded.draft,
+                )
                 val recent = recentFiles.find(uri)
-                val page = (recent?.page ?: 0).coerceIn(0, (document.pageCount - 1).coerceAtLeast(0))
+                val page = (recent?.page ?: 0).coerceIn(0, (shown.pageCount - 1).coerceAtLeast(0))
                 zoomToRestore = recent?.zoom
                 currentZoom = recent?.zoom
                 recentFiles.remember(RecentFile(uri, name, page, recent?.zoom))
                 currentPage = page
-                ReaderState.Ready(uri, name, document, PdfStructure(getApplication(), contentUri), contentUri)
+                ReaderState.Ready(uri, name, shown, PdfStructure(getApplication(), contentUri), contentUri, session)
             } catch (e: PasswordProtectedException) {
                 ReaderState.Error(R.string.error_password)
             } catch (e: Exception) {
@@ -159,6 +191,9 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
         val ready = _state.value as? ReaderState.Ready
         ready?.document?.close()
         ready?.structure?.close()
+        ready?.annotations?.writeDraftNow()
+        renderFile?.delete()
+        renderFile = null
         // Never leave a decrypted copy of a protected file behind.
         unlockedFile?.delete()
         unlockedFile = null

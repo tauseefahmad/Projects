@@ -3,6 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item android:id="@+id/action_open" android:icon="@drawable/ic_folder_open" android:title="@string/open_pdf" app:showAsAction="ifRoom" />
     <item android:id="@+id/action_search" android:icon="@drawable/ic_search" android:title="@string/search" app:showAsAction="ifRoom" />
+    <item android:id="@+id/action_annotate" android:icon="@drawable/ic_edit" android:title="@string/annotate" app:showAsAction="ifRoom" />
     <item android:id="@+id/action_bookmark" android:icon="@drawable/ic_bookmark_border" android:title="@string/add_bookmark" app:showAsAction="ifRoom" />
     <item android:id="@+id/action_open_url" android:title="@string/open_url" app:showAsAction="never" />
     <item android:id="@+id/action_go_to_page" android:title="@string/go_to_page" app:showAsAction="never" />

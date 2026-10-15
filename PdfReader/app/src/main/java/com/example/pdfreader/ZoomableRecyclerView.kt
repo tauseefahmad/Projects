@@ -16,6 +16,7 @@ import android.view.animation.DecelerateInterpolator
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.SnapHelper
+import com.example.pdfreader.core.PointerKind
 import kotlin.math.abs
 
 /**
@@ -57,6 +58,33 @@ class ZoomableRecyclerView @JvmOverloads constructor(
 
     /** In paged mode, used to settle on a page after a zoomed drag. */
     var snapHelper: SnapHelper? = null
+
+    /**
+     * Receives touches while annotating. Touches it accepts draw instead of scrolling; a
+     * second finger turns a finger stroke into a pinch, while a stylus ignores other fingers
+     * (a resting palm).
+     */
+    interface PenHandler {
+        /** A touch began at a screen point; return true to take it. */
+        fun onPenDown(x: Float, y: Float, pressure: Float, kind: PointerKind): Boolean
+        fun onPenMove(x: Float, y: Float, pressure: Float)
+        fun onPenUp(x: Float, y: Float)
+        /** The touch became something else (a pinch) or was cancelled. */
+        fun onPenCancel()
+    }
+
+    var penHandler: PenHandler? = null
+        set(value) {
+            if (field != null && penActive) field?.onPenCancel()
+            penActive = false
+            field = value
+        }
+
+    private var penActive = false
+    private var penPointerId = -1
+    private var penKind = PointerKind.FINGER
+    /** The rest of this gesture skips the tap/long-press detector (it missed the down event). */
+    private var skipGestureDetector = false
 
     private var pinching = false
     private var manualGesture = false
@@ -150,6 +178,20 @@ class ZoomableRecyclerView @JvmOverloads constructor(
         return android.graphics.PointF(toScreenX(row.left + view.left + localX), toScreenY(row.top + view.top + localY))
     }
 
+    /** A screen point in [view]'s own coordinates (it may lie outside the view). */
+    fun localPointIn(view: PageView, screenX: Float, screenY: Float): android.graphics.PointF {
+        val row = view.parent as android.view.View
+        return android.graphics.PointF(toContentX(screenX) - row.left - view.left, toContentY(screenY) - row.top - view.top)
+    }
+
+    /** Calls [action] for every page view on screen. */
+    fun forEachPageView(action: (PageView) -> Unit) {
+        for (i in 0 until childCount) {
+            val row = getChildAt(i) as? android.view.ViewGroup ?: continue
+            for (j in 0 until row.childCount) (row.getChildAt(j) as? PageView)?.let(action)
+        }
+    }
+
     /** The part of the list (in un-zoomed list coordinates) currently on screen. */
     fun visibleContentRect() = RectF(toContentX(0f), toContentY(0f), toContentX(width.toFloat()), toContentY(height.toFloat()))
 
@@ -218,12 +260,95 @@ class ZoomableRecyclerView @JvmOverloads constructor(
     // Children are plain images, so this view handles every touch itself.
     override fun onInterceptTouchEvent(e: MotionEvent) = true
 
+    private fun pointerKind(e: MotionEvent, index: Int) = when (e.getToolType(index)) {
+        MotionEvent.TOOL_TYPE_STYLUS -> PointerKind.STYLUS
+        MotionEvent.TOOL_TYPE_ERASER -> PointerKind.STYLUS_ERASER
+        MotionEvent.TOOL_TYPE_MOUSE -> PointerKind.MOUSE
+        else -> PointerKind.FINGER
+    }
+
+    /** Routes a touch to [penHandler]; returns true while the pen owns the gesture. */
+    private fun handlePen(e: MotionEvent): Boolean {
+        val pen = penHandler ?: return false
+        if (e.actionMasked == MotionEvent.ACTION_DOWN) {
+            skipGestureDetector = false
+            penActive = false
+            val kind = pointerKind(e, 0)
+            if (pen.onPenDown(e.x, e.y, e.pressure, kind)) {
+                animator?.cancel()
+                stopScroll()
+                onTouchStart?.invoke()
+                penActive = true
+                penPointerId = e.getPointerId(0)
+                penKind = kind
+                return true
+            }
+            return false
+        }
+        if (!penActive) return false
+        val index = e.findPointerIndex(penPointerId)
+        when (e.actionMasked) {
+            MotionEvent.ACTION_MOVE -> if (index >= 0) {
+                for (h in 0 until e.historySize) pen.onPenMove(e.getHistoricalX(index, h), e.getHistoricalY(index, h), e.getHistoricalPressure(index, h))
+                pen.onPenMove(e.getX(index), e.getY(index), e.getPressure(index))
+            }
+            MotionEvent.ACTION_UP -> {
+                penActive = false
+                pen.onPenUp(e.x, e.y)
+            }
+            MotionEvent.ACTION_POINTER_UP -> if (e.getPointerId(e.actionIndex) == penPointerId) {
+                penActive = false
+                pen.onPenUp(e.getX(e.actionIndex), e.getY(e.actionIndex))
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                penActive = false
+                pen.onPenCancel()
+            }
+            MotionEvent.ACTION_POINTER_DOWN -> if (penKind == PointerKind.FINGER) {
+                // A second finger: the user wants to pinch or pan, not draw.
+                penActive = false
+                pen.onPenCancel()
+                skipGestureDetector = true
+                pinching = false
+                manualGesture = true
+                velocityTracker?.recycle()
+                velocityTracker = VelocityTracker.obtain()
+                setLastToFocus(e)
+                scaleDetector.onTouchEvent(e)
+                return true
+            }
+        }
+        return true
+    }
+
+    /** The midpoint of the pointers on screen, optionally ignoring one that is lifting. */
+    private fun focus(e: MotionEvent, excludeIndex: Int = -1): Pair<Float, Float> {
+        var x = 0f
+        var y = 0f
+        var n = 0
+        for (i in 0 until e.pointerCount) {
+            if (i == excludeIndex) continue
+            x += e.getX(i)
+            y += e.getY(i)
+            n++
+        }
+        return if (n == 0) e.x to e.y else x / n to y / n
+    }
+
+    private fun setLastToFocus(e: MotionEvent, excludeIndex: Int = -1) {
+        val (fx, fy) = focus(e, excludeIndex)
+        lastX = fx
+        lastY = fy
+    }
+
     override fun onTouchEvent(e: MotionEvent): Boolean {
+        if (handlePen(e)) return true
         scaleDetector.onTouchEvent(e)
-        gestureDetector.onTouchEvent(e)
+        if (!skipGestureDetector) gestureDetector.onTouchEvent(e)
 
         when (e.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                skipGestureDetector = false
                 onTouchStart?.invoke()
                 pinching = false
                 manualGesture = zoom > 1f
@@ -253,16 +378,15 @@ class ZoomableRecyclerView @JvmOverloads constructor(
                 lastX = e.x
                 lastY = e.y
             }
+            MotionEvent.ACTION_POINTER_DOWN -> setLastToFocus(e)
             MotionEvent.ACTION_MOVE -> {
-                if (e.pointerCount == 1 && !scaleDetector.isInProgress) panBy(e.x - lastX, e.y - lastY)
-                lastX = e.x
-                lastY = e.y
+                val (fx, fy) = focus(e)
+                // One finger pans; two fingers pan with their midpoint while pinching.
+                if (e.pointerCount > 1 || !scaleDetector.isInProgress) panBy(fx - lastX, fy - lastY)
+                lastX = fx
+                lastY = fy
             }
-            MotionEvent.ACTION_POINTER_UP -> {
-                val remaining = if (e.actionIndex == 0) 1 else 0
-                lastX = e.getX(remaining)
-                lastY = e.getY(remaining)
-            }
+            MotionEvent.ACTION_POINTER_UP -> setLastToFocus(e, excludeIndex = e.actionIndex)
             MotionEvent.ACTION_UP -> {
                 settle()
                 velocityTracker?.recycle()

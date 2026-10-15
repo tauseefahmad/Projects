@@ -194,4 +194,70 @@
     <string name="error_password">This PDF is password-protected and can\'t be opened.</string>
     <string name="error_open">Couldn\'t open this file. It may be damaged or no longer available.</string>
     <string name="recent_item">%1$s · page %2$d</string>
+    <string name="ok">OK</string>
+    <string name="edit">Edit</string>
+    <string name="done">Done</string>
+    <string name="restore">Restore</string>
+    <string name="annotate">Annotate</string>
+    <string name="annot_color">Color</string>
+    <string name="annot_width">Line width</string>
+    <string name="font_size">Font size</string>
+    <string name="annot_comment">Comment</string>
+    <string name="annot_edit_text">Edit text</string>
+    <string name="annot_delete">Delete annotation</string>
+    <string name="annot_delete_named">Delete %1$s on page %2$d</string>
+    <string name="annot_more">More annotation options</string>
+    <string name="tab_annotations">Annotations</string>
+    <string name="no_annotations">No annotations yet</string>
+    <string name="export_summary">Export summary</string>
+    <string name="summary_subject">Annotations in %1$s</string>
+    <string name="annotation_row_title">%1$s · p. %2$d</string>
+    <string name="tool_select">Select</string>
+    <string name="tool_highlight">Highlight</string>
+    <string name="tool_underline">Underline</string>
+    <string name="tool_strikeout">Strikethrough</string>
+    <string name="tool_squiggly">Squiggly underline</string>
+    <string name="tool_pen">Pen</string>
+    <string name="tool_highlighter">Highlighter</string>
+    <string name="tool_eraser">Eraser</string>
+    <string name="tool_text">Text box</string>
+    <string name="tool_note">Sticky note</string>
+    <string name="tool_rectangle">Rectangle</string>
+    <string name="tool_ellipse">Ellipse</string>
+    <string name="tool_line">Line</string>
+    <string name="tool_arrow">Arrow</string>
+    <string name="tool_stamp">Stamp</string>
+    <string name="tool_image">Image</string>
+    <string name="save_flattened_copy">Save flattened copy</string>
+    <string name="author_name">Author name</string>
+    <string name="author_hint">Shown on your annotations</string>
+    <string name="draw_with_finger">Draw with finger</string>
+    <string name="discard_changes">Discard changes</string>
+    <string name="discard_annotations_message">Remove all annotation changes since the file was last saved?</string>
+    <string name="annotations_saved">Annotations saved</string>
+    <string name="annotations_save_failed">Couldn’t save the annotations</string>
+    <string name="save_changes_title">Save annotations?</string>
+    <string name="save_changes_message">Your annotations are kept as a draft on this device until you save them into the PDF.</string>
+    <string name="not_now">Not now</string>
+    <string name="restore_draft_title">Unsaved annotations</string>
+    <string name="annotations_unavailable">This file’s annotations can’t be edited</string>
+    <string name="note_hint">Comment</string>
+    <string name="text_hint">Text</string>
+    <string name="stamp_custom">Custom…</string>
+    <string name="stamp_text_hint">Stamp text</string>
+    <string name="tap_to_place_stamp">Tap the page to place the stamp</string>
+    <string name="tap_to_place_image">Tap the page to place the image</string>
+    <string name="image_failed">Couldn’t read that image</string>
+    <string name="no_text_here">No text there to mark up</string>
+    <string name="annotated_file_name">%1$s (annotated).pdf</string>
+    <string name="flattened_file_name">%1$s (flattened).pdf</string>
+    <plurals name="restore_draft_message">
+        <item quantity="one">You have %d unsaved annotation for this file from last time. Restore it?</item>
+        <item quantity="other">You have %d unsaved annotations for this file from last time. Restore them?</item>
+    </plurals>
+    <string-array name="palette_names">
+        <item>Yellow</item><item>Light green</item><item>Light blue</item><item>Pink</item>
+        <item>Red</item><item>Blue</item><item>Green</item><item>Purple</item>
+        <item>Orange</item><item>Black</item><item>Gray</item><item>White</item>
+    </string-array>
 </resources>

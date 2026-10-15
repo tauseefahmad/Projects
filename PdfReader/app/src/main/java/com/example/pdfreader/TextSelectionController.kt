@@ -31,6 +31,9 @@ class TextSelectionController(
     private val scope: CoroutineScope,
     private val structure: () -> PdfStructure?,
 ) {
+    /** Turns the selection into a highlight, underline or strikethrough annotation. */
+    var onMarkup: ((page: Int, kind: com.example.pdfreader.core.MarkupKind, lines: List<RectF>, text: String) -> Unit)? = null
+
     private var page = -1
     private var text: PageText? = null
     private var start = 0 // inclusive character indices
@@ -166,6 +169,14 @@ class TextSelectionController(
                 .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
             menu.add(Menu.NONE, android.R.id.selectAll, 2, android.R.string.selectAll)
                 .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
+            if (onMarkup != null) {
+                menu.add(Menu.NONE, R.id.action_highlight_text, 3, R.string.tool_highlight)
+                    .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
+                menu.add(Menu.NONE, R.id.action_underline_text, 4, R.string.tool_underline)
+                    .setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)
+                menu.add(Menu.NONE, R.id.action_strikeout_text, 5, R.string.tool_strikeout)
+                    .setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)
+            }
             // Apps offering to act on selected text, e.g. Google Translate.
             val pm = context.packageManager
             processTextApps = pm.queryIntentActivities(Intent(Intent.ACTION_PROCESS_TEXT).setType("text/plain"), 0)
@@ -199,6 +210,20 @@ class TextSelectionController(
                     clear()
                 }
                 android.R.id.selectAll -> selectAll()
+                R.id.action_highlight_text, R.id.action_underline_text, R.id.action_strikeout_text -> {
+                    val kind = when (item.itemId) {
+                        R.id.action_highlight_text -> com.example.pdfreader.core.MarkupKind.HIGHLIGHT
+                        R.id.action_underline_text -> com.example.pdfreader.core.MarkupKind.UNDERLINE
+                        else -> com.example.pdfreader.core.MarkupKind.STRIKEOUT
+                    }
+                    val pageText = text
+                    val markPage = page
+                    if (pageText != null && markPage >= 0) {
+                        val lines = pageText.boxesFor(start, end + 1)
+                        clear()
+                        onMarkup?.invoke(markPage, kind, lines, selected)
+                    }
+                }
                 else -> {
                     val intent = processTextApps.getOrNull(item.itemId - PROCESS_TEXT_ID_BASE) ?: return false
                     context.startActivity(

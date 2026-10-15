@@ -5,4 +5,9 @@
     <item name="password_input" type="id" />
     <item name="url_input" type="id" />
     <item name="move_input" type="id" />
+    <item name="annotation_text_input" type="id" />
+    <item name="annotation_width_slider" type="id" />
+    <item name="action_highlight_text" type="id" />
+    <item name="action_underline_text" type="id" />
+    <item name="action_strikeout_text" type="id" />
 </resources>

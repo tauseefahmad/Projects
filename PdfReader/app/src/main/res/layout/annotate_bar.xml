@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/annotateBar"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?attr/colorSurfaceContainer"
+    android:orientation="vertical"
+    android:visibility="gone">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="4dp">
+
+        <ImageButton
+            android:id="@+id/annotUndo"
+            android:layout_width="44dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/undo"
+            android:src="@drawable/ic_undo" />
+
+        <ImageButton
+            android:id="@+id/annotRedo"
+            android:layout_width="44dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/redo"
+            android:src="@drawable/ic_redo" />
+
+        <FrameLayout
+            android:id="@+id/annotColor"
+            android:layout_width="44dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/annot_color">
+
+            <View
+                android:id="@+id/annotColorSwatch"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_gravity="center" />
+        </FrameLayout>
+
+        <ImageButton
+            android:id="@+id/annotWidth"
+            android:layout_width="44dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/annot_width"
+            android:src="@drawable/ic_line_weight" />
+
+        <LinearLayout
+            android:id="@+id/annotSelectionActions"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <ImageButton
+                android:id="@+id/annotComment"
+                android:layout_width="44dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/annot_comment"
+                android:src="@drawable/ic_note" />
+
+            <ImageButton
+                android:id="@+id/annotEditText"
+                android:layout_width="44dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/annot_edit_text"
+                android:src="@drawable/ic_edit" />
+
+            <ImageButton
+                android:id="@+id/annotDelete"
+                android:layout_width="44dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/annot_delete"
+                android:src="@drawable/ic_delete" />
+        </LinearLayout>
+
+        <Space
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <ImageButton
+            android:id="@+id/annotList"
+            android:layout_width="44dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/tab_annotations"
+            android:src="@drawable/ic_list" />
+
+        <ImageButton
+            android:id="@+id/annotMore"
+            android:layout_width="40dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/annot_more"
+            android:src="@drawable/ic_more_vert" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/annotDone"
+            style="?attr/borderlessButtonStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:minWidth="0dp"
+            android:paddingHorizontal="12dp"
+            android:text="@string/done" />
+    </LinearLayout>
+
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:id="@+id/annotTools"
+            android:layout_width="wrap_content"
+            android:layout_height="52dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="4dp" />
+    </HorizontalScrollView>
+</LinearLayout>

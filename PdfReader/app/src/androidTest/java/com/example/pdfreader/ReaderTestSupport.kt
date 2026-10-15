@@ -21,6 +21,7 @@ object ReaderTestSupport {
         context.getSharedPreferences(ReaderSettings.PREFS_NAME, Context.MODE_PRIVATE).edit().clear().commit()
         context.getSharedPreferences("recent_files", Context.MODE_PRIVATE).edit().clear().commit()
         context.getSharedPreferences(BookmarkStore.PREFS_NAME, Context.MODE_PRIVATE).edit().clear().commit()
+        java.io.File(context.filesDir, "annotation-drafts").deleteRecursively()
         InstrumentationRegistry.getInstrumentation().runOnMainSync {
             androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
         }

@@ -8,6 +8,10 @@ import android.graphics.Paint
 import android.graphics.PointF
 import android.graphics.RectF
 import androidx.appcompat.widget.AppCompatImageView
+import android.graphics.DashPathEffect
+import android.graphics.Matrix
+import com.example.pdfreader.core.Annotation
+import com.example.pdfreader.core.AnnotationTransform
 import com.example.pdfreader.core.PageRotation
 
 /**
@@ -45,6 +49,20 @@ class PageView(context: Context) : AppCompatImageView(context) {
             invalidate()
         }
 
+    /** What [annotationLayer] provides: annotations to draw over the page. */
+    interface AnnotationLayer {
+        fun annotationsOn(page: Int): List<Annotation>
+        /** An annotation being drawn or dragged, shown on top. */
+        val preview: Annotation?
+        /** The annotation selected for editing, outlined with a resize handle. */
+        val selected: Annotation?
+    }
+
+    var annotationLayer: AnnotationLayer? = null
+
+    /** Radius of the resize handle drawn on the selected annotation, in view pixels. */
+    val handleRadius: Float = 11 * resources.displayMetrics.density
+
     /** View pixels per PDF point. */
     val scale: Float get() = pageRotation?.let { width / it.displayWidth } ?: 1f
 
@@ -74,6 +92,65 @@ class PageView(context: Context) : AppCompatImageView(context) {
     private val highlightPaint = Paint().apply { color = Color.argb(90, 255, 213, 0) }
     private val currentPaint = Paint().apply { color = Color.argb(130, 255, 120, 0) }
     private val scratch = RectF()
+    private val pageMatrix = Matrix()
+    private val src = FloatArray(6)
+    private val dst = FloatArray(6)
+    private val frameStroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        color = Color.rgb(33, 150, 243)
+        strokeWidth = 1.5f * resources.displayMetrics.density
+        pathEffect = DashPathEffect(floatArrayOf(6 * resources.displayMetrics.density, 4 * resources.displayMetrics.density), 0f)
+    }
+    private val handleFill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(33, 150, 243) }
+    private val handleStroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        color = Color.WHITE
+        strokeWidth = 2 * resources.displayMetrics.density
+    }
+
+    /** Maps page coordinates to this view, including the display rotation. */
+    private fun pageToLocal(): Matrix {
+        val r = pageRotation ?: return pageMatrix.apply { reset() }
+        val points = listOf(0f to 0f, r.width to 0f, 0f to r.height)
+        points.forEachIndexed { i, (x, y) ->
+            src[i * 2] = x
+            src[i * 2 + 1] = y
+            val local = toLocal(x, y)
+            dst[i * 2] = local.x
+            dst[i * 2 + 1] = local.y
+        }
+        pageMatrix.setPolyToPoly(src, 0, dst, 0, 3)
+        return pageMatrix
+    }
+
+    /** The selected annotation's frame in view pixels (padded), or null. */
+    fun selectionFrame(a: Annotation): RectF {
+        val b = a.bounds
+        val frame = toLocalRect(RectF(b.left, b.top, b.right, b.bottom))
+        frame.inset(-4 * resources.displayMetrics.density, -4 * resources.displayMetrics.density)
+        return frame
+    }
+
+    private fun drawAnnotations(canvas: Canvas) {
+        val layer = annotationLayer ?: return
+        val items = layer.annotationsOn(page)
+        val preview = layer.preview?.takeIf { it.page == page }
+        if (items.isNotEmpty() || preview != null) {
+            canvas.save()
+            canvas.clipRect(0, 0, width, height)
+            canvas.concat(pageToLocal())
+            for (a in items) AnnotationPainter.draw(canvas, a)
+            preview?.let { AnnotationPainter.draw(canvas, it) }
+            canvas.restore()
+        }
+        val selected = layer.selected?.takeIf { it.page == page } ?: return
+        val frame = selectionFrame(preview?.takeIf { it.id == selected.id } ?: selected)
+        canvas.drawRect(frame, frameStroke)
+        if (AnnotationTransform.canResize(selected)) {
+            canvas.drawCircle(frame.right, frame.bottom, handleRadius, handleFill)
+            canvas.drawCircle(frame.right, frame.bottom, handleRadius, handleStroke)
+        }
+    }
 
     /** Sets a high-resolution render covering [rect] (view coordinates), or clears it with null. */
     fun setDetail(bitmap: Bitmap?, rect: RectF? = null) {
@@ -99,6 +176,7 @@ class PageView(context: Context) : AppCompatImageView(context) {
             canvas.drawBitmap(it, null, detailRect, detailPaint)
         }
         if (pageRotation == null) return
+        drawAnnotations(canvas)
         for (rect in highlights) drawMapped(canvas, rect, highlightPaint)
         for (rect in currentHighlights) drawMapped(canvas, rect, currentPaint)
         for (rect in selection) drawMapped(canvas, rect, selectionPaint)

@@ -56,6 +56,7 @@ object AnnotationIO {
     private val KEY_IMAGE = COSName.getPDFName("PdfReaderImage")
     private val KEY_NOTE = COSName.getPDFName("PdfReaderNote")
     private val KEY_STAMP_KIND = COSName.getPDFName("PdfReaderStamp")
+    private val KEY_TEXT = COSName.getPDFName("PdfReaderText")
 
     /** Maps page coordinates (top-left origin) to PDF space for one page. */
     private class Space(page: PDPage) {
@@ -98,7 +99,7 @@ object AnnotationIO {
         val id = a.annotationName?.takeIf { it.isNotBlank() } ?: newId()
         val color = a.color?.let { runCatching { 0xFF000000.toInt() or it.toRGB() }.getOrNull() } ?: 0xFFFFEB3B.toInt()
         val author = (a as? PDAnnotationMarkup)?.titlePopup.orEmpty()
-        val modified = System.currentTimeMillis()
+        val modified = runCatching { com.tom_roush.pdfbox.util.DateConverter.toCalendar(a.modifiedDate)?.timeInMillis }.getOrNull() ?: 0L
         val note = a.contents.orEmpty()
         val rect = a.rectangle?.let(space::box) ?: Box(0f, 0f, 0f, 0f)
         val width = (a.cosObject.getDictionaryObject(COSName.BS) as? com.tom_roush.pdfbox.cos.COSDictionary)
@@ -119,7 +120,9 @@ object AnnotationIO {
                     PDAnnotationTextMarkup.SUB_TYPE_SQUIGGLY -> MarkupKind.SQUIGGLY
                     else -> MarkupKind.HIGHLIGHT
                 }
-                Annotation.Markup(id, page, color, author, modified, note, kind, lines)
+                // Other apps show /Contents as the comment; when it only repeats the marked text, it isn't one.
+                val text = a.cosObject.getString(KEY_TEXT).orEmpty()
+                Annotation.Markup(id, page, color, author, modified, if (note == text) "" else note, kind, lines, text)
             }
             is PDAnnotationText -> Annotation.Note(id, page, color, author, modified, note, Pt(rect.left, rect.top))
             is PDAnnotationSquareCircle -> {
@@ -246,6 +249,7 @@ object AnnotationIO {
                     MarkupKind.SQUIGGLY -> PDAnnotationTextMarkup.SUB_TYPE_SQUIGGLY
                 }
             ).apply {
+                if (a.text.isNotEmpty()) cosObject.setString(KEY_TEXT, a.text)
                 quadPoints = a.lines.flatMap { line ->
                     listOf(space.x(line.left), space.y(line.top), space.x(line.right), space.y(line.top),
                         space.x(line.left), space.y(line.bottom), space.x(line.right), space.y(line.bottom))
@@ -326,7 +330,8 @@ object AnnotationIO {
                 borderStyle = border
                 fill?.let { interiorColor = it }
                 constantOpacity = a.opacity
-                rectangle = space.rect(a.bounds)
+                // The border is centered on the shape's edge, so the rectangle reaches half a line width out.
+                rectangle = space.rect(Box.around(a.points, a.width / 2))
                 appearance = appearance(doc, rectangle) { s -> drawShape(s, space, a, r, g, b) }
             }
             ShapeKind.LINE, ShapeKind.ARROW -> PDAnnotationLine().apply {

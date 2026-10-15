@@ -206,6 +206,12 @@ class AnnotationHistory(initial: List<Annotation> = emptyList()) {
 
     fun remove(id: String) = commit(items.filter { it.id != id })
 
+    /** Removes several annotations as one undo step (e.g. one eraser swipe). */
+    fun removeAll(ids: Set<String>) = commit(items.filter { it.id !in ids })
+
+    /** Replaces everything as one undo step (e.g. restoring a draft). */
+    fun setAll(newItems: List<Annotation>) = commit(newItems)
+
     fun undo() {
         val previous = undoStack.removeLastOrNull() ?: return
         redoStack.addLast(items)
@@ -230,9 +236,10 @@ class AnnotationHistory(initial: List<Annotation> = emptyList()) {
 
     /** The topmost annotation at a point (last drawn wins), within [slop] points. */
     fun hit(page: Int, x: Float, y: Float, slop: Float = 4f): Annotation? =
-        items.lastOrNull { it.page == page && hitTest(it, x, y, slop) }
+        items.lastOrNull { it.page == page && hits(it, x, y, slop) }
 
-    private fun hitTest(a: Annotation, x: Float, y: Float, slop: Float): Boolean = when (a) {
+    /** Whether (x, y) is on [a]: on its strokes or lines, or inside its box. */
+    fun hits(a: Annotation, x: Float, y: Float, slop: Float): Boolean = when (a) {
         is Annotation.Markup -> a.lines.any { it.contains(x, y, slop) }
         is Annotation.Ink -> a.strokes.any { stroke -> stroke.zipWithNext().any { (p, q) -> Geometry.distanceToSegment(x, y, p, q) <= a.width / 2 + slop } || stroke.size == 1 && Geometry.distance(x, y, stroke[0]) <= a.width + slop }
         is Annotation.Shape -> when (a.kind) {

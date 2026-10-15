@@ -104,6 +104,9 @@ class PageAdapter(
     /** Supplies search highlights for a page: (all matches, current match), in PDF points. */
     var highlightProvider: (suspend (page: Int) -> Pair<List<RectF>, List<RectF>>)? = null
 
+    /** Annotations drawn over every page. */
+    var annotationLayer: PageView.AnnotationLayer? = null
+
     /** Re-fetches highlights for the visible pages, e.g. after a new search. */
     fun refreshHighlights() = notifyItemRangeChanged(0, itemCount, PAYLOAD_HIGHLIGHTS)
 
@@ -128,6 +131,7 @@ class PageAdapter(
                 setBackgroundColor(Color.WHITE)
                 elevation = 2 * density
                 scaleType = ImageView.ScaleType.FIT_XY
+                annotationLayer = this@PageAdapter.annotationLayer
                 layoutParams = LinearLayout.LayoutParams(0, 0).apply {
                     if (index == 1) marginStart = (GAP_DP * density).toInt()
                 }

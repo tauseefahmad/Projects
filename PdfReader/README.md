@@ -29,6 +29,28 @@ tests that run on an Android emulator in CI before a build is published.
 | Open from anywhere | Open with, file picker, share to app, download from URL, password prompt |
 | Full screen | Hides all bars, tap edges to turn pages, keeps the screen awake |
 
+**Phase 3: Page management**
+
+| Feature | What you get |
+| --- | --- |
+| Page organizer | Grid of pages: select, drag to reorder, move to position, rotate, delete (with undo), duplicate, extract, insert blank pages, other PDFs or images |
+| Merge and split | Combine PDFs (a bookmark per file); split by ranges, every N pages or one file per page (zip) |
+| Crop and resize | Trim margins; scale pages to A4, Letter and more |
+| Page numbers and watermark | Number pages in any corner with your own format; text watermark with size, angle and opacity |
+
+**Phase 2: Annotation** (tap ✎ *Annotate*)
+
+| Feature | What you get |
+| --- | --- |
+| Text markup | Highlight, underline, strikethrough, squiggly: drag over text, or select text and pick Highlight |
+| Notes and comments | Sticky notes; a comment on any annotation; tap a note while reading to read it |
+| Free text | Text boxes with font size and color |
+| Ink | Pen and highlighter with smoothing and pen pressure; once a stylus is used, fingers scroll instead of drawing (palm rejection) |
+| Shapes, stamps, images | Rectangle, ellipse, line, arrow; Approved / Draft / Confidential / Paid or custom stamps with date and name; pictures such as a logo |
+| Edit | Select to move, resize, recolor, comment or delete; eraser; undo/redo (Ctrl+Z / Ctrl+Y) |
+| Annotation panel | All annotations by page with filters by type and author; export a text summary |
+| Saving | Saved as standard PDF annotations other apps can read and edit; save in place or as a copy; flattened copy; unsaved work is kept as a draft and offered again |
+
 ### Keyboard shortcuts
 
 | Keys | Action |
@@ -41,6 +63,8 @@ tests that run on an Android emulator in CI before a build is published.
 | Ctrl + / Ctrl − / Ctrl+0 | Zoom in / out / fit width |
 | Ctrl+R | Rotate view |
 | F11 / Esc | Enter / leave full screen |
+| Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z) | Undo / redo annotation changes |
+| Delete | Delete the selected annotation |
 
 ## Requirements
 
