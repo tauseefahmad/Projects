@@ -32,8 +32,8 @@ jobs:
       - name: Unit tests
         run: ./gradlew testDebugUnitTest || (python3 scripts/print_test_failures.py app/build/test-results; exit 1)
 
-      - name: Build debug APK
-        run: ./gradlew assembleDebug
+      - name: Build debug APK and compile device tests
+        run: ./gradlew assembleDebug assembleDebugAndroidTest
 
       - uses: actions/upload-artifact@v4
         with:

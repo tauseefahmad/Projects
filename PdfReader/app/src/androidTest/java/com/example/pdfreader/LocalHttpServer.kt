@@ -28,7 +28,11 @@ class LocalHttpServer(private val routes: Map<String, Triple<Int, String, ByteAr
         }.apply { isDaemon = true }.start()
     }
 
-    private fun handle(client: Socket) = client.use { socket ->
+    private fun handle(client: Socket) {
+        client.use { socket -> respond(socket) }
+    }
+
+    private fun respond(socket: Socket) {
         val reader = socket.getInputStream().bufferedReader(Charsets.ISO_8859_1)
         val requestLine = reader.readLine() ?: return
         while (true) {
