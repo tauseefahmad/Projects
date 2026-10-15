@@ -167,6 +167,20 @@ class MainActivity : AppCompatActivity() {
         uri.authority == "$packageName.files" ||
             checkCallingOrSelfUriPermission(uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION) == android.content.pm.PackageManager.PERMISSION_GRANTED
 
+    private val tools = ToolsController(
+        activity = this,
+        current = {
+            shownReady?.let {
+                ToolsController.CurrentDocument(it.uri, it.contentUri, it.name, it.contentUri == it.uri && canWrite(it.uri), it.document.pageCount)
+            }
+        },
+        openResult = { uri, name -> viewModel.open(uri, name) },
+        reloadCurrent = {
+            viewModel.updatePage(currentPage())
+            viewModel.reload()
+        },
+    )
+
     private fun openOrganizer() {
         val ready = shownReady ?: return
         // Decrypted copies of protected files can only be saved as a copy, never over the original.
@@ -477,6 +491,12 @@ class MainActivity : AppCompatActivity() {
                 R.id.action_bookmark -> toggleBookmark()
                 R.id.action_rotate -> rotateView()
                 R.id.action_organize -> openOrganizer()
+                R.id.tool_merge -> tools.showMerge()
+                R.id.tool_split -> tools.showSplit()
+                R.id.tool_crop -> tools.showCrop()
+                R.id.tool_resize -> tools.showResize()
+                R.id.tool_stamp -> tools.showStamp()
+                R.id.tool_watermark -> tools.showWatermark()
                 R.id.action_full_screen -> setFullScreen(true)
                 R.id.action_keep_screen_on -> {
                     settings.keepScreenOn = !settings.keepScreenOn
@@ -593,7 +613,7 @@ class MainActivity : AppCompatActivity() {
         toolbar.menu.findItem(R.id.action_bookmark).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_search).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_rotate).isVisible = ready != null
-        for (id in listOf(R.id.action_share, R.id.action_print, R.id.action_save_copy, R.id.action_properties, R.id.action_full_screen, R.id.action_organize)) {
+        for (id in listOf(R.id.action_share, R.id.action_print, R.id.action_save_copy, R.id.action_properties, R.id.action_full_screen, R.id.action_organize, R.id.action_tools)) {
             toolbar.menu.findItem(id).isVisible = ready != null
         }
         toolbar.menu.findItem(R.id.action_close).isVisible = ready != null

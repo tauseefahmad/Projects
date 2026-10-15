@@ -130,6 +130,24 @@ object TestPdfs {
         }
     }
 
+    /** Each page's crop box size (width, height) in points. */
+    fun pageSizes(context: Context, uri: Uri): List<Pair<Float, Float>> {
+        com.tom_roush.pdfbox.android.PDFBoxResourceLoader.init(context)
+        return context.contentResolver.openInputStream(uri)!!.use { input ->
+            com.tom_roush.pdfbox.pdmodel.PDDocument.load(input).use { doc -> doc.pages.map { it.cropBox.width to it.cropBox.height } }
+        }
+    }
+
+    /** Top-level outline titles. */
+    fun outlineTitles(context: Context, uri: Uri): List<String> {
+        com.tom_roush.pdfbox.android.PDFBoxResourceLoader.init(context)
+        return context.contentResolver.openInputStream(uri)!!.use { input ->
+            com.tom_roush.pdfbox.pdmodel.PDDocument.load(input).use { doc ->
+                doc.documentCatalog.documentOutline?.children()?.map { it.title } ?: emptyList()
+            }
+        }
+    }
+
     /** Each page's /Rotate value. */
     fun pageRotations(context: Context, uri: Uri): List<Int> {
         com.tom_roush.pdfbox.android.PDFBoxResourceLoader.init(context)

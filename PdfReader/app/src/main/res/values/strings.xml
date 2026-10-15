@@ -47,6 +47,60 @@
     <string name="theme_sepia">Sepia</string>
     <string name="print">Print</string>
     <string name="organize_pages">Organize pages</string>
+    <string name="tools_menu">Tools</string>
+    <string name="apply">Apply</string>
+    <string name="tool_failed">That didn\'t work for this file.</string>
+    <string name="merge_title">Merge PDFs</string>
+    <string name="merge_action">Merge</string>
+    <string name="merge_add">Add PDFs…</string>
+    <string name="merge_need_two">Add at least one more PDF to merge.</string>
+    <string name="merge_item">%1$d. %2$s</string>
+    <string name="merged_name">Merged.pdf</string>
+    <string name="move_up">Move %1$s up</string>
+    <string name="move_down">Move %1$s down</string>
+    <string name="remove_file">Remove %1$s</string>
+    <string name="split_title">Split PDF</string>
+    <string name="split_by_ranges">Page ranges</string>
+    <string name="split_ranges_hint">e.g. 1-5, 6-10</string>
+    <string name="split_every_n">Every N pages</string>
+    <string name="split_n_hint">Pages per file</string>
+    <string name="split_by_bookmarks">At each top-level bookmark</string>
+    <string name="split_singles">Every page separately</string>
+    <string name="split_output">Save as</string>
+    <string name="split_output_zip">One ZIP file</string>
+    <string name="split_output_folder">Files in a folder</string>
+    <string name="split_action">Split</string>
+    <string name="split_done">%1$d files saved</string>
+    <string name="crop_title">Crop margins</string>
+    <string name="crop_message">Trim this much from every page, in millimetres.</string>
+    <string name="crop_top">Top (mm)</string>
+    <string name="crop_bottom">Bottom (mm)</string>
+    <string name="crop_left">Left (mm)</string>
+    <string name="crop_right">Right (mm)</string>
+    <string name="resize_title">Scale all pages to</string>
+    <string name="size_a4">A4 (210 × 297 mm)</string>
+    <string name="size_letter">Letter (8.5 × 11 in)</string>
+    <string name="stamp_title">Page numbers, header and footer</string>
+    <string name="stamp_header">Header text (optional)</string>
+    <string name="stamp_footer">Footer text (optional)</string>
+    <string name="stamp_format">Page number format (empty for none)</string>
+    <string name="stamp_format_default">Page {n} of {total}</string>
+    <string name="stamp_format_help">Use {n} for the page number, {total} for the page count, {date} and {file}.</string>
+    <string name="stamp_start">First page number</string>
+    <string name="stamp_position">Page number position</string>
+    <string name="watermark_title">Watermark</string>
+    <string name="watermark_text">Watermark text</string>
+    <string name="watermark_default">CONFIDENTIAL</string>
+    <string name="watermark_opacity">Opacity</string>
+    <string name="watermark_angle">Angle</string>
+    <string-array name="stamp_positions">
+        <item>Top left</item>
+        <item>Top centre</item>
+        <item>Top right</item>
+        <item>Bottom left</item>
+        <item>Bottom centre</item>
+        <item>Bottom right</item>
+    </string-array>
     <string name="organizer_hint">Tap pages to select them. Long-press and drag to move.</string>
     <string name="selected_count">%1$d selected</string>
     <string name="undo">Undo</string>

@@ -87,6 +87,19 @@
         android:title="@string/organize_pages"
         app:showAsAction="never" />
     <item
+        android:id="@+id/action_tools"
+        android:title="@string/tools_menu"
+        app:showAsAction="never">
+        <menu>
+            <item android:id="@+id/tool_merge" android:title="@string/merge_title" />
+            <item android:id="@+id/tool_split" android:title="@string/split_title" />
+            <item android:id="@+id/tool_crop" android:title="@string/crop_title" />
+            <item android:id="@+id/tool_resize" android:title="@string/resize_title" />
+            <item android:id="@+id/tool_stamp" android:title="@string/stamp_title" />
+            <item android:id="@+id/tool_watermark" android:title="@string/watermark_title" />
+        </menu>
+    </item>
+    <item
         android:id="@+id/action_properties"
         android:title="@string/properties"
         app:showAsAction="never" />

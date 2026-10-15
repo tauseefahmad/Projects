@@ -29,6 +29,7 @@ import java.io.IOException
  * background, and is not thread-safe, so all access goes through [mutex].
  */
 class PdfStructure(private val context: Context, private val uri: Uri) : Closeable {
+    // Closed in the background; safe to use with use { }.
 
     private val mutex = Mutex()
     private var document: PDDocument? = null
