@@ -37,6 +37,7 @@
     <string name="bookmark_added">Bookmarked page %1$d</string>
     <string name="search">Search</string>
     <string name="share">Share</string>
+    <string name="rotate_view">Rotate view</string>
     <string name="copied">Copied to clipboard</string>
     <string name="open_link_title">Open link?</string>
     <string name="open_link">Open</string>

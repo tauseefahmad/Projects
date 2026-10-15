@@ -24,6 +24,9 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
     val recentFiles = RecentFiles(application)
     val bookmarks = BookmarkStore(application)
 
+    /** Clockwise view rotation of the open document (display only; the file is unchanged). */
+    var viewRotation = 0
+
     /** Page the reader is currently on; used to restore position after rotation. */
     var currentPage = 0
         private set
@@ -33,6 +36,7 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
         if (current is ReaderState.Ready && current.uri == uri) return
         savePage()
         closeCurrent()
+        viewRotation = 0
         _state.value = ReaderState.Loading
         viewModelScope.launch {
             _state.value = try {

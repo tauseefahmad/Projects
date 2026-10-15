@@ -66,8 +66,9 @@ class TextSelectionController(
             } catch (e: Exception) {
                 return@launch
             }
-            val x = local.x / view.scale
-            val y = local.y / view.scale
+            val point = view.toPagePoint(local.x, local.y)
+            val x = point.x
+            val y = point.y
             val index = TextGeometry.indexAt(pageText.boxes, x, y)
             val box = pageText.boxOf(index) ?: return@launch
             // Ignore presses in empty margins: require being within about a line of the text.
@@ -89,8 +90,8 @@ class TextSelectionController(
         val pageText = text ?: return
         val view = list.pageViewFor(page) ?: return
         val origin = list.screenPointIn(view, 0f, 0f)
-        val scale = view.scale * list.zoom
-        val index = TextGeometry.indexAt(pageText.boxes, (x - origin.x) / scale, (y - origin.y) / scale)
+        val point = view.toPagePoint((x - origin.x) / list.zoom, (y - origin.y) / list.zoom)
+        val index = TextGeometry.indexAt(pageText.boxes, point.x, point.y)
         if (index < 0) return
         if (isStart) start = index.coerceAtMost(end) else end = index.coerceAtLeast(start)
         refresh()
@@ -136,9 +137,9 @@ class TextSelectionController(
         view.selection = pageText.boxesFor(start, end + 1)
         val first = (start..end).firstNotNullOfOrNull { pageText.boxOf(it) }
         val last = (end downTo start).firstNotNullOfOrNull { pageText.boxOf(it) }
-        val scale = view.scale
-        handles.start = first?.let { list.screenPointIn(view, it.left * scale, it.bottom * scale) }
-        handles.end = last?.let { list.screenPointIn(view, it.right * scale, it.bottom * scale) }
+        // Handles sit at the bottom of the first and last characters as displayed.
+        handles.start = first?.let { view.toLocalRect(it) }?.let { list.screenPointIn(view, it.left, it.bottom) }
+        handles.end = last?.let { view.toLocalRect(it) }?.let { list.screenPointIn(view, it.right, it.bottom) }
     }
 
     /** Selection bounds in list coordinates, for placing the floating toolbar. */
@@ -146,10 +147,9 @@ class TextSelectionController(
         val view = list.pageViewFor(page) ?: return null
         val boxes = view.selection
         if (boxes.isEmpty()) return null
-        val union = RectF(boxes[0]).apply { boxes.drop(1).forEach(::union) }
-        val scale = view.scale
-        val topLeft = list.screenPointIn(view, union.left * scale, union.top * scale)
-        val bottomRight = list.screenPointIn(view, union.right * scale, union.bottom * scale)
+        val union = view.toLocalRect(RectF(boxes[0]).apply { boxes.drop(1).forEach(::union) })
+        val topLeft = list.screenPointIn(view, union.left, union.top)
+        val bottomRight = list.screenPointIn(view, union.right, union.bottom)
         return Rect(topLeft.x.toInt(), topLeft.y.toInt(), bottomRight.x.toInt(), bottomRight.y.toInt())
     }
 

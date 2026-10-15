@@ -49,6 +49,7 @@ import androidx.appcompat.widget.PopupMenu
 import androidx.core.view.WindowCompat
 import androidx.core.widget.doAfterTextChanged
 import com.example.pdfreader.core.Links
+import com.example.pdfreader.core.PageRotation
 import com.example.pdfreader.core.SearchMatch
 import com.example.pdfreader.core.SearchOptions
 import kotlinx.coroutines.Job
@@ -234,6 +235,7 @@ class MainActivity : AppCompatActivity() {
                         NavAction.ZOOM_OUT -> zoom.step(-1)
                         NavAction.ZOOM_FIT -> zoom.fitWidth()
                         NavAction.SEARCH -> if (event.repeatCount == 0) openSearch()
+                        NavAction.ROTATE -> if (event.repeatCount == 0) rotateView()
                     }
                 }
                 return true
@@ -421,6 +423,7 @@ class MainActivity : AppCompatActivity() {
                 R.id.action_open -> launchPicker()
                 R.id.action_go_to_page -> showGoToPageDialog()
                 R.id.action_bookmark -> toggleBookmark()
+                R.id.action_rotate -> rotateView()
                 R.id.action_search -> openSearch()
                 R.id.zoom_fit_width -> {
                     settings.setFitMode(settings.viewMode, FitMode.FIT_WIDTH)
@@ -495,6 +498,7 @@ class MainActivity : AppCompatActivity() {
         toolbar.menu.findItem(R.id.action_zoom).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_bookmark).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_search).isVisible = ready != null
+        toolbar.menu.findItem(R.id.action_rotate).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_close).isVisible = ready != null
         toolbar.title = ready?.name ?: getString(R.string.app_name)
         if (ready != null) {
@@ -540,7 +544,10 @@ class MainActivity : AppCompatActivity() {
             ThumbnailAdapter(doc, lifecycleScope) { page ->
                 goToPage(page)
                 drawer.closeDrawer(GravityCompat.START)
-            }.also { it.darkPages = settings.darkPages }
+            }.also {
+                it.darkPages = settings.darkPages
+                it.rotation = viewModel.viewRotation
+            }
         }
         thumbnails.adapter = thumbnailAdapter
         if (document == null) {
@@ -570,6 +577,7 @@ class MainActivity : AppCompatActivity() {
         adapter = PageAdapter(document, lifecycleScope, spreads, viewMode).also {
             it.darkPages = settings.darkPages
             it.highlightProvider = ::highlightsFor
+            it.rotation = viewModel.viewRotation
         }
         pages.adapter = adapter
         zoom.document = document
@@ -650,6 +658,15 @@ class MainActivity : AppCompatActivity() {
         updateBookmarkButton()
     }
 
+    /** Turns the displayed pages 90° clockwise, staying on the same page. */
+    private fun rotateView() {
+        val document = shownDocument ?: return
+        val page = currentPage()
+        viewModel.viewRotation = (viewModel.viewRotation + 90) % 360
+        thumbnailAdapter?.rotation = viewModel.viewRotation
+        applyLayout(document, page)
+    }
+
     // --- Taps and links ----------------------------------------------------------------------
 
     private fun onPageTap(x: Float, y: Float) {
@@ -666,7 +683,8 @@ class MainActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 emptyList()
             }
-            val link = Links.hit(links, local.x / view.scale, local.y / view.scale) ?: return@launch
+            val point = view.toPagePoint(local.x, local.y)
+            val link = Links.hit(links, point.x, point.y) ?: return@launch
             link.targetPage?.let { goToPage(it) }
             link.uri?.let(::confirmOpenLink)
         }
@@ -790,15 +808,17 @@ class MainActivity : AppCompatActivity() {
                 emptyList()
             }
             if (this@MainActivity.adapter !== adapter) return@launch
-            val top = boxes.firstOrNull()?.top
-            if (top == null) {
+            val box = boxes.firstOrNull()
+            if (box == null) {
                 scrollToItem(item)
                 return@launch
             }
             val slot = adapter.spreads.items[item].indexOf(match.page).coerceAtLeast(0)
             val pageHeightPx = adapter.baseBoxes(item)[slot].height * adapter.layoutScale
-            val pageHeightPt = ready.document.pageSizes[match.page].height
-            val y = adapter.rowPaddingTop() + top / pageHeightPt * pageHeightPx
+            val size = ready.document.pageSizes[match.page]
+            val turn = PageRotation(size.width.toFloat(), size.height.toFloat(), adapter.rotation)
+            val top = turn.rectToDisplay(box.left, box.top, box.right, box.bottom)[1]
+            val y = adapter.rowPaddingTop() + top / turn.displayHeight * pageHeightPx
             scrollToItem(item, offsetPx = (pages.height / 3 - y).toInt())
         }
     }

@@ -67,6 +67,10 @@
         </menu>
     </item>
     <item
+        android:id="@+id/action_rotate"
+        android:title="@string/rotate_view"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/action_dark_pages"
         android:checkable="true"
         android:title="@string/dark_pages"

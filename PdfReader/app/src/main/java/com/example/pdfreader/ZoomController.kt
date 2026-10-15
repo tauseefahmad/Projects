@@ -146,7 +146,7 @@ class ZoomController(
         val page = adapter.spreads.items[item].first
         val base = adapter.baseBoxes(item).first().width.toFloat()
         // 100% shows one PDF point (1/72 inch) as one density-independent pixel.
-        val actual = document.pageSizes[page].width * list.resources.displayMetrics.density
+        val actual = (adapter.displaySize(page).width) * list.resources.displayMetrics.density
         return base to actual
     }
 
@@ -206,6 +206,7 @@ class ZoomController(
                     pageWidthPx = pageRect.width() * zoom,
                     offsetX = (region.left - pageRect.left) * zoom,
                     offsetY = (region.top - pageRect.top) * zoom,
+                    rotation = adapter?.rotation ?: 0,
                 )
                 if (image.page == page) {
                     // Store the region relative to the page view itself.

@@ -8,6 +8,7 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import com.example.pdfreader.core.PageRotation
 import com.google.android.material.card.MaterialCardView
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -29,6 +30,15 @@ class ThumbnailAdapter(
             field = value
             notifyItemChanged(old)
             notifyItemChanged(value)
+        }
+
+    /** Clockwise view rotation, matching the reader. */
+    var rotation = 0
+        set(value) {
+            if (field == value) return
+            field = value
+            cache.evictAll()
+            notifyDataSetChanged()
         }
 
     var darkPages = false
@@ -58,12 +68,13 @@ class ThumbnailAdapter(
     override fun onBindViewHolder(holder: Holder, position: Int) {
         val density = holder.itemView.resources.displayMetrics.density
         val size = document.pageSizes[position]
+        val turn = PageRotation(size.width.toFloat(), size.height.toFloat(), rotation)
         // Fit the page into a 96×136dp box, keeping its shape.
         val boxWidth = THUMB_WIDTH_DP * density
         val boxHeight = THUMB_HEIGHT_DP * density
-        val scale = minOf(boxWidth / size.width, boxHeight / size.height)
-        val width = (size.width * scale).toInt().coerceAtLeast(1)
-        val height = (size.height * scale).toInt().coerceAtLeast(1)
+        val scale = minOf(boxWidth / turn.displayWidth, boxHeight / turn.displayHeight)
+        val width = (turn.displayWidth * scale).toInt().coerceAtLeast(1)
+        val height = (turn.displayHeight * scale).toInt().coerceAtLeast(1)
         holder.image.layoutParams = holder.image.layoutParams.apply {
             this.width = width
             this.height = height
@@ -86,7 +97,7 @@ class ThumbnailAdapter(
         holder.image.setImageDrawable(null)
         holder.job = scope.launch {
             try {
-                val bitmap = document.renderPage(position, width)
+                val bitmap = document.renderPage(position, width, rotation)
                 cache.put(position, bitmap)
                 if (holder.bindingAdapterPosition == position) holder.image.setImageBitmap(bitmap)
             } catch (e: CancellationException) {

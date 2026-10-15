@@ -8,6 +8,7 @@ import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.util.Size
+import com.example.pdfreader.core.PageRotation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
@@ -41,16 +42,19 @@ class PdfDocument private constructor(
     private val mutex = Mutex()
     private var closed = false
 
-    suspend fun renderPage(index: Int, targetWidth: Int): Bitmap = withContext(Dispatchers.IO) {
+    /** Renders a page [targetWidth] pixels wide, turned clockwise by [rotation] degrees. */
+    suspend fun renderPage(index: Int, targetWidth: Int, rotation: Int = 0): Bitmap = withContext(Dispatchers.IO) {
         mutex.withLock {
             check(!closed) { "Document is closed" }
             val page = renderer.openPage(index)
             try {
-                val height = (targetWidth.toLong() * page.height / page.width).toInt().coerceAtLeast(1)
+                val turn = PageRotation(page.width.toFloat(), page.height.toFloat(), rotation)
+                val height = (targetWidth * turn.displayHeight / turn.displayWidth).toInt().coerceAtLeast(1)
                 val bitmap = Bitmap.createBitmap(targetWidth, height, Bitmap.Config.ARGB_8888)
                 // PDFs assume a white sheet; transparent areas would otherwise render black.
                 bitmap.eraseColor(Color.WHITE)
-                page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                val matrix = rotationMatrix(turn).apply { postScale(targetWidth / turn.displayWidth, targetWidth / turn.displayWidth) }
+                page.render(bitmap, null, matrix, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                 bitmap
             } finally {
                 page.close()
@@ -69,6 +73,7 @@ class PdfDocument private constructor(
         pageWidthPx: Float,
         offsetX: Float,
         offsetY: Float,
+        rotation: Int = 0,
     ): Bitmap = withContext(Dispatchers.IO) {
         mutex.withLock {
             check(!closed) { "Document is closed" }
@@ -76,9 +81,10 @@ class PdfDocument private constructor(
             try {
                 val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
                 bitmap.eraseColor(Color.WHITE)
-                val scale = pageWidthPx / page.width
-                val matrix = Matrix().apply {
-                    setScale(scale, scale)
+                val turn = PageRotation(page.width.toFloat(), page.height.toFloat(), rotation)
+                val scale = pageWidthPx / turn.displayWidth
+                val matrix = rotationMatrix(turn).apply {
+                    postScale(scale, scale)
                     postTranslate(-offsetX, -offsetY)
                 }
                 page.render(bitmap, null, matrix, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
@@ -86,6 +92,15 @@ class PdfDocument private constructor(
             } finally {
                 page.close()
             }
+        }
+    }
+
+    /** Maps page points to display points for a clockwise turn (identity when not rotated). */
+    private fun rotationMatrix(turn: PageRotation) = Matrix().apply {
+        when (turn.degrees) {
+            90 -> { setRotate(90f); postTranslate(turn.height, 0f) }
+            180 -> { setRotate(180f); postTranslate(turn.width, turn.height) }
+            270 -> { setRotate(270f); postTranslate(0f, turn.width) }
         }
     }
 

@@ -14,6 +14,7 @@ import android.widget.LinearLayout
 import androidx.recyclerview.widget.RecyclerView
 import com.example.pdfreader.core.PageBox
 import com.example.pdfreader.core.PageFit
+import com.example.pdfreader.core.PageRotation
 import com.example.pdfreader.core.Spreads
 import com.example.pdfreader.core.ViewMode
 import kotlinx.coroutines.CancellationException
@@ -40,6 +41,22 @@ class PageAdapter(
             field = value
             notifyItemRangeChanged(0, itemCount, PAYLOAD_RERENDER)
         }
+
+    /** Clockwise view rotation in degrees (0, 90, 180, 270); the file itself is unchanged. */
+    var rotation = 0
+        set(value) {
+            if (field == value) return
+            field = value
+            cache.evictAll()
+            notifyDataSetChanged()
+        }
+
+    /** A page's size in points as displayed (width and height swap when turned a quarter). */
+    fun displaySize(page: Int): PageBox {
+        val size = document.pageSizes[page]
+        val turn = PageRotation(size.width.toFloat(), size.height.toFloat(), rotation)
+        return PageBox(turn.displayWidth.toInt(), turn.displayHeight.toInt())
+    }
 
     /** Shrinks every page in the layout (≤ 1); used when zoomed out below fit-to-width. */
     var layoutScale = 1f
@@ -144,7 +161,7 @@ class PageAdapter(
 
     /** Page sizes of item [position] at layout scale 1 (fit to width, or fit to screen when paged). */
     fun baseBoxes(position: Int): List<PageBox> = PageFit.fit(
-        spreads.items[position].map { PageBox(document.pageSizes[it].width, document.pageSizes[it].height) },
+        spreads.items[position].map { displaySize(it) },
         availableWidth(),
         if (viewMode == ViewMode.SINGLE_PAGE) availableHeight() else null,
         gapPx(),
@@ -181,7 +198,8 @@ class PageAdapter(
             image.contentDescription = "Page ${page + 1}"
             if (image.page != page) image.clearOverlays()
             image.page = page
-            image.pageWidthPoints = document.pageSizes[page].width.toFloat()
+            val size = document.pageSizes[page]
+            image.pageRotation = PageRotation(size.width.toFloat(), size.height.toFloat(), rotation)
             applyFilter(image)
             bindPage(holder, slot, page, box.width)
             bindHighlights(holder, slot, page)
@@ -204,7 +222,7 @@ class PageAdapter(
         image.tag = page
         holder.jobs[slot] = scope.launch {
             try {
-                val bitmap = document.renderPage(page, renderWidth)
+                val bitmap = document.renderPage(page, renderWidth, rotation)
                 cache.put(key, bitmap)
                 if (image.tag == page) image.setImageBitmap(bitmap)
             } catch (e: CancellationException) {
