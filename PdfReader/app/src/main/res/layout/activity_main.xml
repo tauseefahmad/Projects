@@ -40,6 +40,19 @@
             android:paddingBottom="8dp"
             android:visibility="gone" />
 
+        <TextView
+            android:id="@+id/zoomLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|center_horizontal"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/zoom_label_bg"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="6dp"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:visibility="gone" />
+
         <ProgressBar
             android:id="@+id/progress"
             android:layout_width="wrap_content"

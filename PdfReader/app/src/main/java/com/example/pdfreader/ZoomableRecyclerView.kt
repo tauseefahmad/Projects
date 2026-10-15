@@ -4,7 +4,10 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RectF
 import android.util.AttributeSet
 import android.view.GestureDetector
 import android.view.MotionEvent
@@ -41,6 +44,22 @@ class ZoomableRecyclerView @JvmOverloads constructor(
 
     /** Called when a finger touches the list, i.e. the user starts moving it by hand. */
     var onTouchStart: (() -> Unit)? = null
+
+    /** Called whenever zoom, pan or scroll position changes (detail tiles become stale). */
+    var onViewportChanged: (() -> Unit)? = null
+
+    /** Called when the viewport comes to rest after a gesture, fling or scroll. */
+    var onViewportSettled: (() -> Unit)? = null
+
+    /** High-resolution renders of the visible page areas, drawn over the (blurrier) page bitmaps. */
+    var detailTiles: List<DetailTile> = emptyList()
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    /** Paint for [detailTiles]; its color filter follows the pages' (e.g. dark pages). */
+    val detailPaint = Paint(Paint.FILTER_BITMAP_FLAG)
 
     /** In paged mode, used to settle on a page after a zoomed drag. */
     var snapHelper: SnapHelper? = null
@@ -87,13 +106,38 @@ class ZoomableRecyclerView @JvmOverloads constructor(
     fun toContentY(screenY: Float) = (screenY - transY) / zoom
     fun toContentX(screenX: Float) = (screenX - transX) / zoom
 
+    /** The part of the list (in un-zoomed list coordinates) currently on screen. */
+    fun visibleContentRect() = RectF(toContentX(0f), toContentY(0f), toContentX(width.toFloat()), toContentY(height.toFloat()))
+
     fun resetZoom() {
         animator?.cancel()
         zoom = 1f
         transX = 0f
         transY = 0f
+        viewportChanged()
+    }
+
+    /**
+     * Sets the draw zoom without user interaction. With [alignStart] the viewport moves to the
+     * top-left (used for "fit" modes); otherwise it zooms around the center of the screen.
+     */
+    fun setDrawZoom(newZoom: Float, alignStart: Boolean) {
+        animator?.cancel()
+        if (alignStart) {
+            zoom = newZoom.coerceIn(MIN_ZOOM, MAX_ZOOM)
+            transX = 0f
+            transY = 0f
+            clampTranslation()
+            viewportChanged()
+        } else {
+            zoomTo(newZoom, width / 2f, height / 2f)
+        }
+    }
+
+    private fun viewportChanged() {
+        if (detailTiles.isNotEmpty()) detailTiles = emptyList()
         invalidate()
-        onZoomSettled?.invoke(zoom)
+        onViewportChanged?.invoke()
     }
 
     private fun zoomTo(newZoom: Float, focusX: Float, focusY: Float) {
@@ -104,7 +148,7 @@ class ZoomableRecyclerView @JvmOverloads constructor(
         transY = focusY - (focusY - transY) * factor
         zoom = clamped
         clampTranslation()
-        invalidate()
+        viewportChanged()
     }
 
     private fun animateZoom(target: Float, focusX: Float, focusY: Float) {
@@ -123,8 +167,9 @@ class ZoomableRecyclerView @JvmOverloads constructor(
     }
 
     private fun clampTranslation() {
-        transX = transX.coerceIn(width - width * zoom, 0f)
-        transY = transY.coerceIn(height - height * zoom, 0f)
+        // Zoomed out below 1x (mid-pinch), the shrunk list stays centered.
+        transX = if (zoom >= 1f) transX.coerceIn(width - width * zoom, 0f) else (width - width * zoom) / 2f
+        transY = if (zoom >= 1f) transY.coerceIn(height - height * zoom, 0f) else (height - height * zoom) / 2f
     }
 
     // Children are plain images, so this view handles every touch itself.
@@ -204,7 +249,7 @@ class ZoomableRecyclerView @JvmOverloads constructor(
                 scrollRemainder -= whole
             }
         }
-        invalidate()
+        viewportChanged()
     }
 
     /** After a zoomed drag: fling the list if the viewport is at its edge, then snap pages. */
@@ -221,15 +266,28 @@ class ZoomableRecyclerView @JvmOverloads constructor(
             val listVelocity = (-velocity / zoom).toInt()
             flung = if (horizontal) fling(listVelocity, 0) else fling(0, listVelocity)
         }
-        if (!flung) snapToNearest()
+        if (!flung && !snapToNearest()) onViewportSettled?.invoke()
     }
 
-    private fun snapToNearest() {
-        val helper = snapHelper ?: return
-        val manager = layoutManager ?: return
-        val view = helper.findSnapView(manager) ?: return
-        val distance = helper.calculateDistanceToFinalSnap(manager, view) ?: return
-        if (distance[0] != 0 || distance[1] != 0) smoothScrollBy(distance[0], distance[1])
+    /** Returns true if a snap scroll started (which settles on its own when it stops). */
+    private fun snapToNearest(): Boolean {
+        val helper = snapHelper ?: return false
+        val manager = layoutManager ?: return false
+        val view = helper.findSnapView(manager) ?: return false
+        val distance = helper.calculateDistanceToFinalSnap(manager, view) ?: return false
+        if (distance[0] == 0 && distance[1] == 0) return false
+        smoothScrollBy(distance[0], distance[1])
+        return true
+    }
+
+    override fun onScrolled(dx: Int, dy: Int) {
+        super.onScrolled(dx, dy)
+        if (dx != 0 || dy != 0) viewportChanged()
+    }
+
+    override fun onScrollStateChanged(state: Int) {
+        super.onScrollStateChanged(state)
+        if (state == SCROLL_STATE_IDLE) onViewportSettled?.invoke()
     }
 
     override fun dispatchDraw(canvas: Canvas) {
@@ -237,6 +295,7 @@ class ZoomableRecyclerView @JvmOverloads constructor(
         canvas.translate(transX, transY)
         canvas.scale(zoom, zoom)
         super.dispatchDraw(canvas)
+        for (tile in detailTiles) canvas.drawBitmap(tile.bitmap, null, tile.contentRect, detailPaint)
         canvas.restore()
     }
 
@@ -246,8 +305,12 @@ class ZoomableRecyclerView @JvmOverloads constructor(
     }
 
     companion object {
-        const val MIN_ZOOM = 1f
-        const val MAX_ZOOM = 5f
+        /** Lowest zoom while pinching; on release it becomes a smaller layout instead. */
+        const val MIN_ZOOM = 0.25f
+        const val MAX_ZOOM = 8f
         const val DOUBLE_TAP_ZOOM = 2.5f
     }
 }
+
+/** A sharp render of [contentRect] (in un-zoomed list coordinates) of one page. */
+class DetailTile(val page: Int, val contentRect: RectF, val bitmap: Bitmap)

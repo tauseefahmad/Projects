@@ -37,7 +37,8 @@ import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
+import android.view.Menu
+import com.example.pdfreader.core.ZoomMath
 
 class MainActivity : AppCompatActivity() {
 
@@ -55,6 +56,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var emptyState: ScrollView
     private lateinit var recentSection: LinearLayout
     private lateinit var recentList: LinearLayout
+    private lateinit var zoom: ZoomController
 
     private var adapter: PageAdapter? = null
     private var shownDocument: PdfDocument? = null
@@ -95,6 +97,7 @@ class MainActivity : AppCompatActivity() {
         emptyState = findViewById(R.id.emptyState)
         recentSection = findViewById(R.id.recentSection)
         recentList = findViewById(R.id.recentList)
+        zoom = ZoomController(pages, findViewById(R.id.zoomLabel), lifecycleScope, ::currentItem) { scrollToItem(it) }
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.root)) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
@@ -119,10 +122,6 @@ class MainActivity : AppCompatActivity() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) = updatePageLabel()
         })
         pages.onTouchStart = { explicitItem = null }
-        pages.onZoomSettled = { zoom ->
-            // Re-render in 0.5 steps (max 2x) so text stays sharp without exhausting memory.
-            adapter?.renderScale = ((zoom.coerceAtMost(2f) * 2).roundToInt() / 2f).coerceAtLeast(1f)
-        }
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -160,6 +159,9 @@ class MainActivity : AppCompatActivity() {
                         NavAction.FIRST -> scrollToItem(0)
                         NavAction.LAST -> scrollToItem(spreads.size - 1)
                         NavAction.GO_TO -> if (event.repeatCount == 0) showGoToPageDialog()
+                        NavAction.ZOOM_IN -> zoom.step(1)
+                        NavAction.ZOOM_OUT -> zoom.step(-1)
+                        NavAction.ZOOM_FIT -> zoom.fitWidth()
                     }
                 }
                 return true
@@ -179,11 +181,25 @@ class MainActivity : AppCompatActivity() {
 
     private fun setUpMenu() {
         toolbar.inflateMenu(R.menu.main_menu)
+        val zoomMenu = toolbar.menu.findItem(R.id.action_zoom).subMenu!!
+        ZoomMath.PRESETS.forEachIndexed { index, percent ->
+            zoomMenu.add(Menu.NONE, ZOOM_PRESET_ID_BASE + percent, index + 10, getString(R.string.zoom_percent, percent))
+        }
         syncMenuChecks()
         toolbar.setOnMenuItemClickListener { item ->
             when (item.itemId) {
                 R.id.action_open -> launchPicker()
                 R.id.action_go_to_page -> showGoToPageDialog()
+                R.id.zoom_fit_width -> {
+                    settings.setFitMode(settings.viewMode, FitMode.FIT_WIDTH)
+                    zoom.fitWidth()
+                }
+                R.id.zoom_fit_page -> {
+                    settings.setFitMode(settings.viewMode, FitMode.FIT_PAGE)
+                    zoom.fitPage()
+                }
+                R.id.zoom_actual_size -> zoom.setPercent(100)
+                in ZOOM_PRESET_ID_BASE..ZOOM_PRESET_ID_BASE + 1000 -> zoom.setPercent(item.itemId - ZOOM_PRESET_ID_BASE)
                 R.id.view_continuous -> changeLayout { settings.viewMode = ViewMode.CONTINUOUS }
                 R.id.view_single_page -> changeLayout { settings.viewMode = ViewMode.SINGLE_PAGE }
                 R.id.spread_none -> changeLayout { settings.spreadMode = SpreadMode.NONE }
@@ -192,6 +208,7 @@ class MainActivity : AppCompatActivity() {
                 R.id.action_dark_pages -> {
                     settings.darkPages = !settings.darkPages
                     adapter?.darkPages = settings.darkPages
+                    zoom.refreshDetail()
                     syncMenuChecks()
                 }
                 R.id.action_volume_keys -> {
@@ -242,6 +259,7 @@ class MainActivity : AppCompatActivity() {
         navBar.isVisible = ready != null
         emptyState.isVisible = state is ReaderState.Empty || state is ReaderState.Error
         toolbar.menu.findItem(R.id.action_go_to_page).isVisible = ready != null
+        toolbar.menu.findItem(R.id.action_zoom).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_close).isVisible = ready != null
         toolbar.title = ready?.name ?: getString(R.string.app_name)
 
@@ -262,7 +280,9 @@ class MainActivity : AppCompatActivity() {
         shownDocument = document
         explicitItem = null
         if (document == null) {
-            pages.resetZoom()
+            zoom.reset()
+            zoom.document = null
+            zoom.adapter = null
             adapter = null
             pages.adapter = null
             fastScroll.isVisible = false
@@ -273,7 +293,7 @@ class MainActivity : AppCompatActivity() {
 
     /** (Re)builds the list for the current view and spread settings, starting at [page]. */
     private fun applyLayout(document: PdfDocument, page: Int) {
-        pages.resetZoom()
+        zoom.reset()
         val viewMode = settings.viewMode
         val single = viewMode == ViewMode.SINGLE_PAGE
         pages.layoutManager = LinearLayoutManager(this, if (single) RecyclerView.HORIZONTAL else RecyclerView.VERTICAL, false)
@@ -283,11 +303,16 @@ class MainActivity : AppCompatActivity() {
         val spreads = Spreads(document.pageCount, settings.spreadMode)
         adapter = PageAdapter(document, lifecycleScope, spreads, viewMode).also { it.darkPages = settings.darkPages }
         pages.adapter = adapter
+        zoom.document = document
+        zoom.adapter = adapter
 
         fastScroll.pageCount = document.pageCount
         fastScroll.isVisible = !single && document.pageCount > 2
 
         scrollToItem(spreads.itemForPage(page))
+        val newAdapter = adapter
+        // Fit modes need the list's size, so apply the default once it has been laid out.
+        pages.post { if (adapter === newAdapter) zoom.apply(settings.fitMode(viewMode), announce = false) }
     }
 
     /** Adapter position of the item the reader is on. */
@@ -321,6 +346,9 @@ class MainActivity : AppCompatActivity() {
     private fun goToPage(page: Int) {
         val spreads = adapter?.spreads ?: return
         scrollToItem(spreads.itemForPage(page))
+        val newAdapter = adapter
+        // Fit modes need the list's size, so apply the default once it has been laid out.
+        pages.post { if (adapter === newAdapter) zoom.apply(settings.fitMode(viewMode), announce = false) }
     }
 
     private fun scrollToItem(item: Int, smooth: Boolean = false) {
@@ -388,6 +416,10 @@ class MainActivity : AppCompatActivity() {
             row.setOnClickListener { viewModel.open(file.uri, file.name) }
             recentList.addView(row)
         }
+    }
+
+    private companion object {
+        const val ZOOM_PRESET_ID_BASE = 10_000
     }
 
     private fun displayName(uri: Uri): String {

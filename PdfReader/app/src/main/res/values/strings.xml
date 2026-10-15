@@ -19,6 +19,11 @@
     <string name="spread_two">Two-page spread</string>
     <string name="spread_cover">Two-page spread with cover</string>
     <string name="volume_keys">Volume keys turn pages</string>
+    <string name="zoom_menu">Zoom</string>
+    <string name="zoom_fit_width">Fit width</string>
+    <string name="zoom_fit_page">Fit page</string>
+    <string name="zoom_actual_size">Actual size (100%)</string>
+    <string name="zoom_percent">%1$d%%</string>
     <string name="page_number_hint">Page (1–%1$d)</string>
     <string name="go">Go</string>
     <string name="cancel">Cancel</string>

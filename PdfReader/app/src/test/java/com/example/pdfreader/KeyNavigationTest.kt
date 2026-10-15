@@ -35,6 +35,16 @@ class KeyNavigationTest {
     }
 
     @Test
+    fun ctrlPlusMinusZeroZoom() {
+        assertEquals(NavAction.ZOOM_IN, action(KeyEvent.KEYCODE_EQUALS, ctrl = true))
+        assertEquals(NavAction.ZOOM_IN, action(KeyEvent.KEYCODE_PLUS, ctrl = true))
+        assertEquals(NavAction.ZOOM_OUT, action(KeyEvent.KEYCODE_MINUS, ctrl = true))
+        assertEquals(NavAction.ZOOM_FIT, action(KeyEvent.KEYCODE_0, ctrl = true))
+        assertNull(action(KeyEvent.KEYCODE_MINUS))
+        assertNull(action(KeyEvent.KEYCODE_0))
+    }
+
+    @Test
     fun volumeKeysOnlyWhenEnabled() {
         assertNull(action(KeyEvent.KEYCODE_VOLUME_DOWN))
         assertNull(action(KeyEvent.KEYCODE_VOLUME_UP))

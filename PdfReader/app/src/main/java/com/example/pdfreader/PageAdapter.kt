@@ -40,6 +40,14 @@ class PageAdapter(
             notifyItemRangeChanged(0, itemCount, PAYLOAD_RERENDER)
         }
 
+    /** Shrinks every page in the layout (≤ 1); used when zoomed out below fit-to-width. */
+    var layoutScale = 1f
+        set(value) {
+            if (field == value) return
+            field = value
+            notifyDataSetChanged()
+        }
+
     var darkPages = false
         set(value) {
             if (field == value) return
@@ -104,21 +112,38 @@ class PageAdapter(
         }
     }
 
+    /** Width available to an item's pages, in pixels (0 before the list is laid out). */
+    fun availableWidth(): Int {
+        val parent = recyclerView ?: return 0
+        val padding = 2 * (ROW_PADDING_H_DP * parent.resources.displayMetrics.density).toInt()
+        return (parent.width - parent.paddingLeft - parent.paddingRight - padding).coerceAtLeast(0)
+    }
+
+    /** Height available to an item's pages, in pixels. */
+    fun availableHeight(): Int {
+        val parent = recyclerView ?: return 0
+        val padding = 2 * (ROW_PADDING_V_DP * parent.resources.displayMetrics.density).toInt()
+        return (parent.height - parent.paddingTop - parent.paddingBottom - padding).coerceAtLeast(0)
+    }
+
+    private fun gapPx(): Int = recyclerView?.let { (GAP_DP * it.resources.displayMetrics.density).toInt() } ?: 0
+
+    /** Page sizes of item [position] at layout scale 1 (fit to width, or fit to screen when paged). */
+    fun baseBoxes(position: Int): List<PageBox> = PageFit.fit(
+        spreads.items[position].map { PageBox(document.pageSizes[it].width, document.pageSizes[it].height) },
+        availableWidth(),
+        if (viewMode == ViewMode.SINGLE_PAGE) availableHeight() else null,
+        gapPx(),
+    )
+
     override fun onBindViewHolder(holder: ItemHolder, position: Int) {
-        val parent = recyclerView ?: return
-        val row = holder.row
-        val availableWidth = parent.width - parent.paddingLeft - parent.paddingRight - row.paddingLeft - row.paddingRight
-        val availableHeight = parent.height - parent.paddingTop - parent.paddingBottom - row.paddingTop - row.paddingBottom
-        if (availableWidth <= 0) return bindLater(holder, position)
+        if (recyclerView == null) return
+        if (availableWidth() <= 0) return bindLater(holder, position)
 
         val pages = spreads.items[position].toList()
-        val gap = (GAP_DP * parent.resources.displayMetrics.density).toInt()
-        val boxes = PageFit.fit(
-            pages.map { PageBox(document.pageSizes[it].width, document.pageSizes[it].height) },
-            availableWidth,
-            if (viewMode == ViewMode.SINGLE_PAGE) availableHeight else null,
-            gap,
-        )
+        val boxes = baseBoxes(position).map {
+            PageBox((it.width * layoutScale).toInt().coerceAtLeast(1), (it.height * layoutScale).toInt().coerceAtLeast(1))
+        }
 
         holder.images.forEachIndexed { slot, image ->
             holder.jobs[slot]?.cancel()
@@ -184,7 +209,7 @@ class PageAdapter(
     }
 
     private fun applyFilter(image: ImageView) {
-        image.colorFilter = if (darkPages) INVERT else null
+        image.colorFilter = if (darkPages) PageFilters.INVERT else null
     }
 
     private companion object {
@@ -194,16 +219,19 @@ class PageAdapter(
         const val GAP_DP = 6
         const val ROW_PADDING_H_DP = 8
         const val ROW_PADDING_V_DP = 4
+    }
+}
 
-        val INVERT = ColorMatrixColorFilter(
-            ColorMatrix(
-                floatArrayOf(
-                    -1f, 0f, 0f, 0f, 255f,
-                    0f, -1f, 0f, 0f, 255f,
-                    0f, 0f, -1f, 0f, 255f,
-                    0f, 0f, 0f, 1f, 0f,
-                )
+object PageFilters {
+    /** Inverts page colors for night reading. */
+    val INVERT = ColorMatrixColorFilter(
+        ColorMatrix(
+            floatArrayOf(
+                -1f, 0f, 0f, 0f, 255f,
+                0f, -1f, 0f, 0f, 255f,
+                0f, 0f, -1f, 0f, 255f,
+                0f, 0f, 0f, 1f, 0f,
             )
         )
-    }
+    )
 }

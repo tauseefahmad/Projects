@@ -3,6 +3,7 @@ package com.example.pdfreader
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.graphics.Matrix
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.ParcelFileDescriptor
@@ -50,6 +51,37 @@ class PdfDocument private constructor(
                 // PDFs assume a white sheet; transparent areas would otherwise render black.
                 bitmap.eraseColor(Color.WHITE)
                 page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                bitmap
+            } finally {
+                page.close()
+            }
+        }
+    }
+
+    /**
+     * Renders part of a page into a [width]×[height] bitmap, for sharp detail when zoomed in.
+     * The page is drawn [pageWidthPx] pixels wide, shifted by ([offsetX], [offsetY]).
+     */
+    suspend fun renderRegion(
+        index: Int,
+        width: Int,
+        height: Int,
+        pageWidthPx: Float,
+        offsetX: Float,
+        offsetY: Float,
+    ): Bitmap = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            check(!closed) { "Document is closed" }
+            val page = renderer.openPage(index)
+            try {
+                val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                bitmap.eraseColor(Color.WHITE)
+                val scale = pageWidthPx / page.width
+                val matrix = Matrix().apply {
+                    setScale(scale, scale)
+                    postTranslate(-offsetX, -offsetY)
+                }
+                page.render(bitmap, null, matrix, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                 bitmap
             } finally {
                 page.close()

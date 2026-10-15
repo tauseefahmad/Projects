@@ -21,6 +21,15 @@ class ReaderSettings(context: Context) {
         get() = prefs.getBoolean(KEY_VOLUME_KEYS, false)
         set(value) = prefs.edit().putBoolean(KEY_VOLUME_KEYS, value).apply()
 
+    /** The fit mode applied when a document opens, remembered per view mode. */
+    fun fitMode(viewMode: ViewMode): FitMode {
+        val default = if (viewMode == ViewMode.SINGLE_PAGE) FitMode.FIT_PAGE else FitMode.FIT_WIDTH
+        return enumValue(prefs.getString(KEY_FIT_MODE + viewMode.name, null), default)
+    }
+
+    fun setFitMode(viewMode: ViewMode, mode: FitMode) =
+        prefs.edit().putString(KEY_FIT_MODE + viewMode.name, mode.name).apply()
+
     var darkPages: Boolean
         get() = prefs.getBoolean(KEY_DARK_PAGES, false)
         set(value) = prefs.edit().putBoolean(KEY_DARK_PAGES, value).apply()
@@ -34,5 +43,6 @@ class ReaderSettings(context: Context) {
         private const val KEY_SPREAD_MODE = "spread_mode"
         private const val KEY_VOLUME_KEYS = "volume_keys"
         private const val KEY_DARK_PAGES = "dark_pages"
+        private const val KEY_FIT_MODE = "fit_mode_"
     }
 }

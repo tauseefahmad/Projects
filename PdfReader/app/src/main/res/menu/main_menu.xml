@@ -11,6 +11,22 @@
         android:title="@string/go_to_page"
         app:showAsAction="never" />
     <item
+        android:id="@+id/action_zoom"
+        android:title="@string/zoom_menu"
+        app:showAsAction="never">
+        <menu>
+            <item
+                android:id="@+id/zoom_fit_width"
+                android:title="@string/zoom_fit_width" />
+            <item
+                android:id="@+id/zoom_fit_page"
+                android:title="@string/zoom_fit_page" />
+            <item
+                android:id="@+id/zoom_actual_size"
+                android:title="@string/zoom_actual_size" />
+        </menu>
+    </item>
+    <item
         android:id="@+id/action_view"
         android:title="@string/view_menu"
         app:showAsAction="never">
