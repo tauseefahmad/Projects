@@ -576,10 +576,10 @@ class MainActivity : AppCompatActivity() {
         if (theme == settings.theme) return
         val wasSepia = settings.theme == AppTheme.SEPIA
         settings.theme = theme
-        val nightModeChanged = AppCompatDelegate.getDefaultNightMode() != theme.nightMode
-        // Changing night mode recreates the screen by itself; sepia <-> light needs a nudge.
         AppCompatDelegate.setDefaultNightMode(theme.nightMode)
-        if (!nightModeChanged && (wasSepia || theme == AppTheme.SEPIA)) recreate()
+        // Night-mode changes recreate the screen when they change its colors; sepia is a
+        // separate theme, so entering or leaving it always needs a fresh screen.
+        if (wasSepia || theme == AppTheme.SEPIA) recreate()
     }
 
     /** Applies a layout setting change while keeping the reader on the same page. */
@@ -613,7 +613,7 @@ class MainActivity : AppCompatActivity() {
         toolbar.menu.findItem(R.id.action_bookmark).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_search).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_rotate).isVisible = ready != null
-        for (id in listOf(R.id.action_share, R.id.action_print, R.id.action_save_copy, R.id.action_properties, R.id.action_full_screen, R.id.action_organize, R.id.action_tools)) {
+        for (id in listOf(R.id.action_document, R.id.action_full_screen, R.id.action_organize, R.id.action_tools)) {
             toolbar.menu.findItem(id).isVisible = ready != null
         }
         toolbar.menu.findItem(R.id.action_close).isVisible = ready != null

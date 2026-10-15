@@ -42,7 +42,8 @@ class LinksTest {
         ReaderTestSupport.resetAppState()
         Intents.init()
         // Never actually launch a browser from tests.
-        intending(hasAction(Intent.ACTION_VIEW)).respondWith(Instrumentation.ActivityResult(Activity.RESULT_OK, null))
+        intending(allOf(hasAction(Intent.ACTION_VIEW), hasData(androidx.test.espresso.intent.matcher.UriMatchers.hasScheme("https"))))
+            .respondWith(Instrumentation.ActivityResult(Activity.RESULT_OK, null))
     }
 
     @After

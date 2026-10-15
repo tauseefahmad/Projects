@@ -43,10 +43,7 @@ class ExportTest {
     @After
     fun tearDown() = Intents.release()
 
-    private fun chooseMenu(title: Int) {
-        openActionBarOverflowOrOptionsMenu(context)
-        onView(withText(title)).perform(click())
-    }
+    private fun chooseMenu(title: Int) = ReaderTestSupport.menu(R.string.document_menu, title)
 
     private fun original() = File(context.cacheDir, "shared/test-3.pdf")
 

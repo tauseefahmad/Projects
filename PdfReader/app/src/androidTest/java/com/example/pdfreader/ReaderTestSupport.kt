@@ -54,6 +54,22 @@ object ReaderTestSupport {
         }
     }
 
+    /** Opens the overflow menu and follows a path of entries, e.g. menu(R.string.document_menu, R.string.share). */
+    fun menu(vararg titles: Int) {
+        androidx.test.espresso.Espresso.openActionBarOverflowOrOptionsMenu(context)
+        for (title in titles) onView(withText(title)).perform(androidx.test.espresso.action.ViewActions.click())
+    }
+
+    /** Clicks a toolbar action whether it is shown as an icon or sits in the overflow menu. */
+    fun toolbarAction(title: Int) {
+        try {
+            onView(androidx.test.espresso.matcher.ViewMatchers.withContentDescription(title))
+                .perform(androidx.test.espresso.action.ViewActions.click())
+        } catch (e: androidx.test.espresso.NoMatchingViewException) {
+            menu(title)
+        }
+    }
+
     /** Current text of the page label ("3 / 10"). */
     fun pageLabelText(): String {
         var text = ""

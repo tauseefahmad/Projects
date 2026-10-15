@@ -29,11 +29,7 @@ class ThemeTest {
     @After
     fun tearDown() = ReaderTestSupport.resetAppState()
 
-    private fun chooseTheme(title: Int) {
-        openActionBarOverflowOrOptionsMenu(context)
-        onView(withText(R.string.theme_menu)).perform(click())
-        onView(withText(title)).perform(click())
-    }
+    private fun chooseTheme(title: Int) = ReaderTestSupport.menu(R.string.display_menu, title)
 
     private fun pageFilter(scenario: ActivityScenario<MainActivity>): Any? {
         var filter: Any? = null
@@ -75,8 +71,7 @@ class ThemeTest {
             waitForPageLabel("1 / 2")
             waitFor { scenario.onActivity { checkNotNull(it.findViewById<ZoomableRecyclerView>(R.id.pages).pageViewFor(0)) } }
             assertEquals(null, pageFilter(scenario))
-            openActionBarOverflowOrOptionsMenu(context)
-            onView(withText(R.string.dark_pages)).perform(click())
+            ReaderTestSupport.menu(R.string.display_menu, R.string.dark_pages)
             waitFor { assertSame(PageFilters.INVERT, pageFilter(scenario)) }
             assertTrue(ReaderSettings(context).darkPages)
         }

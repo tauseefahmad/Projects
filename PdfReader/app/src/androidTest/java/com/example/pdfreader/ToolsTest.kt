@@ -154,7 +154,8 @@ class ToolsTest {
             onView(withText(R.string.apply)).inRoot(isDialog()).perform(click())
             waitFor(20_000) {
                 val texts = TestPdfs.pageTexts(context, uri)
-                assertTrue(texts.toString(), texts.all { it.contains("CONFIDENTIAL") })
+                // Rotated text comes out of extraction split across lines.
+                assertTrue(texts.toString(), texts.all { it.replace(Regex("\\s"), "").contains("CONFIDENTIAL") })
             }
         }
     }

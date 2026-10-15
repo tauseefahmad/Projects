@@ -32,7 +32,12 @@ import org.junit.runner.RunWith
 class FullScreenTest {
 
     @Before
-    fun setUp() = ReaderTestSupport.resetAppState()
+    fun setUp() {
+        ReaderTestSupport.resetAppState()
+        // Skip Android's one-time "swipe to exit full screen" notice, a system window over the app.
+        androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().uiAutomation
+            .executeShellCommand("settings put secure immersive_mode_confirmations confirmed").close()
+    }
 
     private fun enterFullScreen() {
         openActionBarOverflowOrOptionsMenu(context)
@@ -106,8 +111,7 @@ class FullScreenTest {
     fun keepScreenOnSettingWorksOutsideFullScreen() {
         openPdf(2).use { scenario ->
             waitForPageLabel("1 / 2")
-            openActionBarOverflowOrOptionsMenu(context)
-            onView(withText(R.string.keep_screen_on)).perform(click())
+            ReaderTestSupport.menu(R.string.display_menu, R.string.keep_screen_on)
             waitFor { assertTrue(keepsScreenOn(scenario)) }
         }
     }

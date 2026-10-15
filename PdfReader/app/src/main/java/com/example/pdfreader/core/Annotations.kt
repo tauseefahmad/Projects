@@ -1,9 +1,15 @@
 package com.example.pdfreader.core
 
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+
 /** A point in page coordinates: PDF points, top-left origin, unrotated. */
+@Serializable
 data class Pt(val x: Float, val y: Float)
 
 /** A rectangle in page coordinates. */
+@Serializable
 data class Box(val left: Float, val top: Float, val right: Float, val bottom: Float) {
     val width: Float get() = right - left
     val height: Float get() = bottom - top
@@ -33,6 +39,7 @@ enum class StampKind(val label: String) {
  * An annotation on a page. Colors are ARGB ints. [id] is stable across saves (the PDF /NM
  * entry), [note] is the comment shown in its pop-up.
  */
+@Serializable
 sealed class Annotation {
     abstract val id: String
     abstract val page: Int
@@ -47,6 +54,8 @@ sealed class Annotation {
     abstract fun moved(dx: Float, dy: Float): Annotation
 
     /** Highlight, underline, strikeout or squiggly over text; one [Box] per line. */
+    @Serializable
+    @SerialName("markup")
     data class Markup(
         override val id: String, override val page: Int, override val color: Int,
         override val author: String, override val modified: Long, override val note: String = "",
@@ -59,6 +68,8 @@ sealed class Annotation {
     }
 
     /** A sticky note icon at [at]. */
+    @Serializable
+    @SerialName("note")
     data class Note(
         override val id: String, override val page: Int, override val color: Int,
         override val author: String, override val modified: Long, override val note: String,
@@ -75,6 +86,8 @@ sealed class Annotation {
     }
 
     /** A text box. */
+    @Serializable
+    @SerialName("freetext")
     data class FreeText(
         override val id: String, override val page: Int, override val color: Int,
         override val author: String, override val modified: Long, override val note: String = "",
@@ -87,6 +100,8 @@ sealed class Annotation {
     }
 
     /** Freehand strokes (pen or highlighter). [opacity] < 1 for the highlighter. */
+    @Serializable
+    @SerialName("ink")
     data class Ink(
         override val id: String, override val page: Int, override val color: Int,
         override val author: String, override val modified: Long, override val note: String = "",
@@ -99,6 +114,8 @@ sealed class Annotation {
     }
 
     /** Rectangle, ellipse (both inside [points] 0..1), line, arrow (2 points) or polygon (≥3). */
+    @Serializable
+    @SerialName("shape")
     data class Shape(
         override val id: String, override val page: Int, override val color: Int,
         override val author: String, override val modified: Long, override val note: String = "",
@@ -111,6 +128,8 @@ sealed class Annotation {
     }
 
     /** A stamp such as APPROVED, with a "date · user" line. */
+    @Serializable
+    @SerialName("stamp")
     data class Stamp(
         override val id: String, override val page: Int, override val color: Int,
         override val author: String, override val modified: Long, override val note: String = "",
@@ -123,6 +142,8 @@ sealed class Annotation {
     }
 
     /** A picture placed on the page (logo, scanned signature); [imagePath] is a private copy. */
+    @Serializable
+    @SerialName("image")
     data class Image(
         override val id: String, override val page: Int, override val color: Int,
         override val author: String, override val modified: Long, override val note: String = "",
@@ -260,4 +281,14 @@ object Geometry {
         fun wing(a: Double) = Pt((to.x - size * kotlin.math.cos(a)).toFloat(), (to.y - size * kotlin.math.sin(a)).toFloat())
         return wing(angle - spread) to wing(angle + spread)
     }
+}
+
+/** JSON for saving unsaved annotations (drafts) locally. */
+object AnnotationJson {
+    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = false }
+
+    fun encode(items: List<Annotation>): String = json.encodeToString(kotlinx.serialization.builtins.ListSerializer(Annotation.serializer()), items)
+
+    fun decode(text: String): List<Annotation> =
+        runCatching { json.decodeFromString(kotlinx.serialization.builtins.ListSerializer(Annotation.serializer()), text) }.getOrDefault(emptyList())
 }

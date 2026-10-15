@@ -27,8 +27,7 @@ class PropertiesTest {
         val uri = TestPdfs.createWithInfo(context, "report.pdf", "Annual Report 2026", "Sara Example", "Finances")
         openUri(uri).use {
             waitForPageLabel("1 / 3")
-            openActionBarOverflowOrOptionsMenu(context)
-            onView(withText(R.string.properties)).perform(click())
+            ReaderTestSupport.menu(R.string.document_menu, R.string.properties)
             waitFor { onView(withText("Annual Report 2026")).inRoot(isDialog()).check(matches(isDisplayed())) }
             onView(withText("Sara Example")).inRoot(isDialog()).check(matches(isDisplayed()))
             onView(withText("Finances")).inRoot(isDialog()).check(matches(isDisplayed()))

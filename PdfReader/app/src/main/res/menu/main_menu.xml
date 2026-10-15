@@ -1,95 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
-    <item
-        android:id="@+id/action_open"
-        android:icon="@drawable/ic_folder_open"
-        android:title="@string/open_pdf"
-        app:showAsAction="ifRoom" />
-    <item
-        android:id="@+id/action_open_url"
-        android:title="@string/open_url"
-        app:showAsAction="never" />
-    <item
-        android:id="@+id/action_search"
-        android:icon="@drawable/ic_search"
-        android:title="@string/search"
-        app:showAsAction="ifRoom" />
-    <item
-        android:id="@+id/action_bookmark"
-        android:icon="@drawable/ic_bookmark_border"
-        android:title="@string/add_bookmark"
-        app:showAsAction="ifRoom" />
-    <item
-        android:id="@+id/action_go_to_page"
-        android:title="@string/go_to_page"
-        app:showAsAction="never" />
-    <item
-        android:id="@+id/action_zoom"
-        android:title="@string/zoom_menu"
-        app:showAsAction="never">
+    <item android:id="@+id/action_open" android:icon="@drawable/ic_folder_open" android:title="@string/open_pdf" app:showAsAction="ifRoom" />
+    <item android:id="@+id/action_search" android:icon="@drawable/ic_search" android:title="@string/search" app:showAsAction="ifRoom" />
+    <item android:id="@+id/action_bookmark" android:icon="@drawable/ic_bookmark_border" android:title="@string/add_bookmark" app:showAsAction="ifRoom" />
+    <item android:id="@+id/action_open_url" android:title="@string/open_url" app:showAsAction="never" />
+    <item android:id="@+id/action_go_to_page" android:title="@string/go_to_page" app:showAsAction="never" />
+    <item android:id="@+id/action_zoom" android:title="@string/zoom_menu" app:showAsAction="never">
         <menu>
-            <item
-                android:id="@+id/zoom_fit_width"
-                android:title="@string/zoom_fit_width" />
-            <item
-                android:id="@+id/zoom_fit_page"
-                android:title="@string/zoom_fit_page" />
-            <item
-                android:id="@+id/zoom_actual_size"
-                android:title="@string/zoom_actual_size" />
+            <item android:id="@+id/zoom_fit_width" android:title="@string/zoom_fit_width" />
+            <item android:id="@+id/zoom_fit_page" android:title="@string/zoom_fit_page" />
+            <item android:id="@+id/zoom_actual_size" android:title="@string/zoom_actual_size" />
         </menu>
     </item>
-    <item
-        android:id="@+id/action_view"
-        android:title="@string/view_menu"
-        app:showAsAction="never">
+    <item android:id="@+id/action_view" android:title="@string/view_menu" app:showAsAction="never">
         <menu>
-            <group
-                android:id="@+id/group_view_mode"
-                android:checkableBehavior="single">
-                <item
-                    android:id="@+id/view_continuous"
-                    android:title="@string/view_continuous" />
-                <item
-                    android:id="@+id/view_single_page"
-                    android:title="@string/view_single_page" />
+            <group android:id="@+id/group_view_mode" android:checkableBehavior="single">
+                <item android:id="@+id/view_continuous" android:title="@string/view_continuous" />
+                <item android:id="@+id/view_single_page" android:title="@string/view_single_page" />
             </group>
-            <group
-                android:id="@+id/group_spread"
-                android:checkableBehavior="single">
-                <item
-                    android:id="@+id/spread_none"
-                    android:title="@string/spread_none" />
-                <item
-                    android:id="@+id/spread_two"
-                    android:title="@string/spread_two" />
-                <item
-                    android:id="@+id/spread_cover"
-                    android:title="@string/spread_cover" />
+            <group android:id="@+id/group_spread" android:checkableBehavior="single">
+                <item android:id="@+id/spread_none" android:title="@string/spread_none" />
+                <item android:id="@+id/spread_two" android:title="@string/spread_two" />
+                <item android:id="@+id/spread_cover" android:title="@string/spread_cover" />
             </group>
         </menu>
     </item>
-    <item
-        android:id="@+id/action_share"
-        android:title="@string/share"
-        app:showAsAction="never" />
-    <item
-        android:id="@+id/action_print"
-        android:title="@string/print"
-        app:showAsAction="never" />
-    <item
-        android:id="@+id/action_save_copy"
-        android:title="@string/save_copy"
-        app:showAsAction="never" />
-    <item
-        android:id="@+id/action_organize"
-        android:title="@string/organize_pages"
-        app:showAsAction="never" />
-    <item
-        android:id="@+id/action_tools"
-        android:title="@string/tools_menu"
-        app:showAsAction="never">
+    <item android:id="@+id/action_rotate" android:title="@string/rotate_view" app:showAsAction="never" />
+    <item android:id="@+id/action_full_screen" android:title="@string/full_screen" app:showAsAction="never" />
+    <item android:id="@+id/action_organize" android:title="@string/organize_pages" app:showAsAction="never" />
+    <item android:id="@+id/action_tools" android:title="@string/tools_menu" app:showAsAction="never">
         <menu>
             <item android:id="@+id/tool_merge" android:title="@string/merge_title" />
             <item android:id="@+id/tool_split" android:title="@string/split_title" />
@@ -99,58 +39,28 @@
             <item android:id="@+id/tool_watermark" android:title="@string/watermark_title" />
         </menu>
     </item>
-    <item
-        android:id="@+id/action_properties"
-        android:title="@string/properties"
-        app:showAsAction="never" />
-    <item
-        android:id="@+id/action_full_screen"
-        android:title="@string/full_screen"
-        app:showAsAction="never" />
-    <item
-        android:id="@+id/action_rotate"
-        android:title="@string/rotate_view"
-        app:showAsAction="never" />
-    <item
-        android:id="@+id/action_theme"
-        android:title="@string/theme_menu"
-        app:showAsAction="never">
+    <item android:id="@+id/action_document" android:title="@string/document_menu" app:showAsAction="never">
         <menu>
-            <group
-                android:id="@+id/group_theme"
-                android:checkableBehavior="single">
-                <item
-                    android:id="@+id/theme_system"
-                    android:title="@string/theme_system" />
-                <item
-                    android:id="@+id/theme_light"
-                    android:title="@string/theme_light" />
-                <item
-                    android:id="@+id/theme_dark"
-                    android:title="@string/theme_dark" />
-                <item
-                    android:id="@+id/theme_sepia"
-                    android:title="@string/theme_sepia" />
+            <item android:id="@+id/action_share" android:title="@string/share" />
+            <item android:id="@+id/action_print" android:title="@string/print" />
+            <item android:id="@+id/action_save_copy" android:title="@string/save_copy" />
+            <item android:id="@+id/action_properties" android:title="@string/properties" />
+        </menu>
+    </item>
+    <item android:id="@+id/action_display" android:title="@string/display_menu" app:showAsAction="never">
+        <menu>
+            <group android:id="@+id/group_theme" android:checkableBehavior="single">
+                <item android:id="@+id/theme_system" android:title="@string/theme_system" />
+                <item android:id="@+id/theme_light" android:title="@string/theme_light" />
+                <item android:id="@+id/theme_dark" android:title="@string/theme_dark" />
+                <item android:id="@+id/theme_sepia" android:title="@string/theme_sepia" />
+            </group>
+            <group android:id="@+id/group_display_toggles">
+                <item android:id="@+id/action_dark_pages" android:checkable="true" android:title="@string/dark_pages" />
+                <item android:id="@+id/action_keep_screen_on" android:checkable="true" android:title="@string/keep_screen_on" />
+                <item android:id="@+id/action_volume_keys" android:checkable="true" android:title="@string/volume_keys" />
             </group>
         </menu>
     </item>
-    <item
-        android:id="@+id/action_dark_pages"
-        android:checkable="true"
-        android:title="@string/dark_pages"
-        app:showAsAction="never" />
-    <item
-        android:id="@+id/action_keep_screen_on"
-        android:checkable="true"
-        android:title="@string/keep_screen_on"
-        app:showAsAction="never" />
-    <item
-        android:id="@+id/action_volume_keys"
-        android:checkable="true"
-        android:title="@string/volume_keys"
-        app:showAsAction="never" />
-    <item
-        android:id="@+id/action_close"
-        android:title="@string/close_document"
-        app:showAsAction="never" />
+    <item android:id="@+id/action_close" android:title="@string/close_document" app:showAsAction="never" />
 </menu>

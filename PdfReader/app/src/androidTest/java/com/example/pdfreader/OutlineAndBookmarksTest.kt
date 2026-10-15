@@ -26,6 +26,7 @@ import com.example.pdfreader.ReaderTestSupport.waitForPageLabel
 import com.example.pdfreader.TestPdfs.Entry
 import org.hamcrest.Matchers.allOf
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -108,12 +109,13 @@ class OutlineAndBookmarksTest {
 
     @Test
     fun bookmarkingAPageListsItAndTappingJumpsBack() {
-        openPdf(6).use {
+        val uri = TestPdfs.create(context, "bm.pdf", 6)
+        openUri(uri).use {
             waitForPageLabel("1 / 6")
             repeat(2) { onView(withId(R.id.nextPage)).perform(click()) }
             waitForPageLabel("3 / 6")
-            onView(withContentDescription(R.string.add_bookmark)).perform(click())
-            waitFor { onView(withContentDescription(R.string.remove_bookmark)).check(matches(isDisplayed())) }
+            ReaderTestSupport.toolbarAction(R.string.add_bookmark)
+            waitFor { assertTrue(BookmarkStore(context).load(uri).isNotEmpty()) }
 
             onView(withId(R.id.prevPage)).perform(click())
             waitForPageLabel("2 / 6")
@@ -126,10 +128,11 @@ class OutlineAndBookmarksTest {
 
     @Test
     fun bookmarksAreKeptPerFileAndCanBeDeleted() {
-        openPdf(6, name = "keep.pdf").use {
+        val uri = TestPdfs.create(context, "keep.pdf", 6)
+        openUri(uri).use {
             waitForPageLabel("1 / 6")
-            onView(withContentDescription(R.string.add_bookmark)).perform(click())
-            waitFor { onView(withContentDescription(R.string.remove_bookmark)).check(matches(isDisplayed())) }
+            ReaderTestSupport.toolbarAction(R.string.add_bookmark)
+            waitFor { assertTrue(BookmarkStore(context).load(uri).isNotEmpty()) }
         }
         openPdf(6, name = "keep.pdf").use {
             waitForPageLabel("1 / 6")
@@ -138,17 +141,15 @@ class OutlineAndBookmarksTest {
             onView(withContentDescription("Delete bookmark Page 1")).perform(click())
             waitFor { onView(withText(R.string.no_bookmarks)).check(matches(isDisplayed())) }
         }
-        openPdf(6, name = "other.pdf").use {
-            waitForPageLabel("1 / 6")
-            onView(withContentDescription(R.string.add_bookmark)).check(matches(isDisplayed()))
-        }
+        // Bookmarks belong to their file: another file has none.
+        assertTrue(BookmarkStore(context).load(TestPdfs.create(context, "other.pdf", 6)).isEmpty())
     }
 
     @Test
     fun longPressRenamesABookmark() {
         openPdf(4).use {
             waitForPageLabel("1 / 4")
-            onView(withContentDescription(R.string.add_bookmark)).perform(click())
+            ReaderTestSupport.toolbarAction(R.string.add_bookmark)
             openPanelTab(R.string.tab_bookmarks)
             waitFor { onView(allOf(withId(R.id.bookmarkTitle), withText("Page 1"))).check(matches(isDisplayed())) }
             onView(allOf(withId(R.id.bookmarkTitle), withText("Page 1"))).perform(longClick())

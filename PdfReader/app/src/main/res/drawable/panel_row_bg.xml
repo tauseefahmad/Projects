@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Selected rows are tinted; the touch ripple comes from each row's foreground. -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_selected="true" android:drawable="@color/panel_selected" />
-    <item android:drawable="?attr/selectableItemBackground" />
+    <item android:drawable="@android:color/transparent" />
 </selector>

@@ -48,6 +48,8 @@
     <string name="print">Print</string>
     <string name="organize_pages">Organize pages</string>
     <string name="tools_menu">Tools</string>
+    <string name="document_menu">Document</string>
+    <string name="display_menu">Display</string>
     <string name="apply">Apply</string>
     <string name="tool_failed">That didn\'t work for this file.</string>
     <string name="merge_title">Merge PDFs</string>

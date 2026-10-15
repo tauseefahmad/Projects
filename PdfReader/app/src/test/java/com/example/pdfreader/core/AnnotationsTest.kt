@@ -84,3 +84,25 @@ class AnnotationsTest {
         assertEquals("Arrow", Annotation.Shape("s", 0, 0, "", 0, kind = ShapeKind.ARROW, points = listOf(Pt(0f, 0f), Pt(1f, 1f))).typeName())
     }
 }
+
+class AnnotationJsonTest {
+
+    @Test
+    fun everyKindRoundTrips() {
+        val items = listOf(
+            Annotation.Markup("m", 0, 1, "Sara", 5, "nice", MarkupKind.SQUIGGLY, listOf(Box(1f, 2f, 3f, 4f)), "text"),
+            Annotation.Note("n", 1, 2, "", 6, "remember", Pt(5f, 6f)),
+            Annotation.FreeText("f", 2, 3, "", 7, "", Box(0f, 0f, 100f, 40f), "Hello\\nworld", 14f),
+            Annotation.Ink("i", 0, 4, "", 8, "", listOf(listOf(Pt(0f, 0f), Pt(1f, 1f))), 3f, 0.4f),
+            Annotation.Shape("s", 0, 5, "", 9, "", ShapeKind.POLYGON, listOf(Pt(0f, 0f), Pt(5f, 0f), Pt(0f, 5f)), 2f, fill = 7),
+            Annotation.Stamp("st", 3, 6, "", 10, "", Box(0f, 0f, 150f, 50f), StampKind.PAID, "PAID", "15 Oct 2026 · Sara"),
+            Annotation.Image("im", 4, 0, "", 11, "", Box(0f, 0f, 50f, 50f), "/data/x.png"),
+        )
+        assertEquals(items, AnnotationJson.decode(AnnotationJson.encode(items)))
+    }
+
+    @Test
+    fun brokenJsonGivesNoAnnotations() {
+        assertEquals(emptyList<Annotation>(), AnnotationJson.decode("{not json"))
+    }
+}
