@@ -78,6 +78,23 @@ object TestPdfs {
         return FileProvider.getUriForFile(context, "${context.packageName}.files", file)
     }
 
+    /** A 3-page A4 PDF with document information (title, author, subject) set. */
+    fun createWithInfo(context: Context, name: String, title: String, author: String, subject: String): Uri {
+        com.tom_roush.pdfbox.android.PDFBoxResourceLoader.init(context)
+        val dir = File(context.cacheDir, "shared").apply { mkdirs() }
+        val file = File(dir, name)
+        com.tom_roush.pdfbox.pdmodel.PDDocument().use { document ->
+            repeat(3) { document.addPage(com.tom_roush.pdfbox.pdmodel.PDPage(com.tom_roush.pdfbox.pdmodel.common.PDRectangle.A4)) }
+            document.documentInformation.apply {
+                this.title = title
+                this.author = author
+                this.subject = subject
+            }
+            document.save(file)
+        }
+        return FileProvider.getUriForFile(context, "${context.packageName}.files", file)
+    }
+
     /** An outline entry for [createWithOutline]: [page] is 0-based. */
     class Entry(val title: String, val page: Int, val children: List<Entry> = emptyList())
 

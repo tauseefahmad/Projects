@@ -48,6 +48,7 @@ import android.view.inputmethod.EditorInfo
 import androidx.appcompat.widget.PopupMenu
 import androidx.core.view.WindowCompat
 import androidx.core.widget.doAfterTextChanged
+import com.example.pdfreader.core.Formatting
 import com.example.pdfreader.core.Links
 import com.example.pdfreader.core.PageRotation
 import com.example.pdfreader.core.SearchMatch
@@ -438,6 +439,7 @@ class MainActivity : AppCompatActivity() {
                 R.id.action_go_to_page -> showGoToPageDialog()
                 R.id.action_bookmark -> toggleBookmark()
                 R.id.action_rotate -> rotateView()
+                R.id.action_properties -> showProperties()
                 R.id.action_share -> shareDocument()
                 R.id.action_print -> printDocument()
                 R.id.action_save_copy -> shownReady?.let { saveCopy.launch(DocumentExport.safeFileName(it.name)) }
@@ -516,7 +518,9 @@ class MainActivity : AppCompatActivity() {
         toolbar.menu.findItem(R.id.action_bookmark).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_search).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_rotate).isVisible = ready != null
-        for (id in listOf(R.id.action_share, R.id.action_print, R.id.action_save_copy)) toolbar.menu.findItem(id).isVisible = ready != null
+        for (id in listOf(R.id.action_share, R.id.action_print, R.id.action_save_copy, R.id.action_properties)) {
+            toolbar.menu.findItem(id).isVisible = ready != null
+        }
         toolbar.menu.findItem(R.id.action_close).isVisible = ready != null
         toolbar.title = ready?.name ?: getString(R.string.app_name)
         if (ready != null) {
@@ -674,6 +678,66 @@ class MainActivity : AppCompatActivity() {
         thumbnailAdapter?.currentPage = range.first
         if (outlineLoaded) outlineAdapter.showCurrentPage(range.first)
         updateBookmarkButton()
+    }
+
+    private fun showProperties() {
+        val ready = shownReady ?: return
+        lifecycleScope.launch {
+            val properties = try {
+                ready.structure.properties()
+            } catch (e: Exception) {
+                Toast.makeText(this@MainActivity, R.string.error_open, Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            val fileSize = fileSize(ready.uri)
+            val dateFormat = java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT)
+            val rows = listOfNotNull(
+                R.string.prop_file_name to ready.name,
+                properties.title?.let { R.string.prop_title to it },
+                properties.author?.let { R.string.prop_author to it },
+                properties.subject?.let { R.string.prop_subject to it },
+                properties.keywords?.let { R.string.prop_keywords to it },
+                R.string.prop_pages to properties.pageCount.toString(),
+                R.string.prop_page_size to Formatting.pageSize(properties.firstPageWidth, properties.firstPageHeight),
+                fileSize?.let { R.string.prop_file_size to Formatting.bytes(it) },
+                properties.created?.let { R.string.prop_created to dateFormat.format(it.time) },
+                properties.modified?.let { R.string.prop_modified to dateFormat.format(it.time) },
+                properties.creator?.let { R.string.prop_creator to it },
+                properties.producer?.let { R.string.prop_producer to it },
+                R.string.prop_version to properties.version,
+                R.string.prop_encrypted to getString(if (properties.encrypted) R.string.yes else R.string.no),
+            )
+            val density = resources.displayMetrics.density
+            val list = LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding((24 * density).toInt(), (8 * density).toInt(), (24 * density).toInt(), 0)
+            }
+            for ((label, value) in rows) {
+                list.addView(TextView(this@MainActivity).apply {
+                    setText(label)
+                    setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_LabelMedium)
+                    setPadding(0, (10 * density).toInt(), 0, 0)
+                })
+                list.addView(TextView(this@MainActivity).apply {
+                    text = value
+                    setTextIsSelectable(true)
+                    setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyLarge)
+                })
+            }
+            MaterialAlertDialogBuilder(this@MainActivity)
+                .setTitle(R.string.properties)
+                .setView(ScrollView(this@MainActivity).apply { addView(list) })
+                .setPositiveButton(R.string.close, null)
+                .show()
+        }
+    }
+
+    private fun fileSize(uri: Uri): Long? = try {
+        contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getLong(0) else null
+        }
+    } catch (e: Exception) {
+        null
     }
 
     private fun shareDocument() {

@@ -89,6 +89,43 @@ class PdfStructure(private val context: Context, private val uri: Uri) : Closeab
         }
     }
 
+    /** Metadata and facts about the file for the properties dialog. */
+    data class Properties(
+        val title: String?,
+        val author: String?,
+        val subject: String?,
+        val keywords: String?,
+        val creator: String?,
+        val producer: String?,
+        val created: java.util.Calendar?,
+        val modified: java.util.Calendar?,
+        val version: String,
+        val encrypted: Boolean,
+        val pageCount: Int,
+        val firstPageWidth: Float,
+        val firstPageHeight: Float,
+    )
+
+    suspend fun properties(): Properties = withDocument { doc ->
+        val info = doc.documentInformation
+        val box = if (doc.numberOfPages > 0) doc.getPage(0).cropBox else null
+        Properties(
+            title = info?.title?.takeIf { it.isNotBlank() },
+            author = info?.author?.takeIf { it.isNotBlank() },
+            subject = info?.subject?.takeIf { it.isNotBlank() },
+            keywords = info?.keywords?.takeIf { it.isNotBlank() },
+            creator = info?.creator?.takeIf { it.isNotBlank() },
+            producer = info?.producer?.takeIf { it.isNotBlank() },
+            created = runCatching { info?.creationDate }.getOrNull(),
+            modified = runCatching { info?.modificationDate }.getOrNull(),
+            version = doc.version.toString(),
+            encrypted = doc.isEncrypted,
+            pageCount = doc.numberOfPages,
+            firstPageWidth = box?.width ?: 0f,
+            firstPageHeight = box?.height ?: 0f,
+        )
+    }
+
     /** Link areas on a page: internal (to a page) and external (URLs). */
     suspend fun links(page: Int): List<PageLink> {
         synchronized(linkCache) { linkCache[page] }?.let { return it }

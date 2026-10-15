@@ -79,6 +79,10 @@
         android:title="@string/save_copy"
         app:showAsAction="never" />
     <item
+        android:id="@+id/action_properties"
+        android:title="@string/properties"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/action_rotate"
         android:title="@string/rotate_view"
         app:showAsAction="never" />
