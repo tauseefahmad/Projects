@@ -61,13 +61,17 @@ class ZoomTest {
         return result!!
     }
 
+    /** Pages much taller than a phone screen, so "fit page" has to shrink them. */
+    private fun openTallPdf(pages: Int, name: String) = openPdf(pages, name = name, width = 595, height = 1600)
+
     @Test
     fun fitPageShowsTheWholePage() {
-        openPdf(3).use { scenario ->
+        openTallPdf(3, "tall-3.pdf").use { scenario ->
             waitForPageLabel("1 / 3")
             chooseZoom(context.getString(R.string.zoom_fit_page))
             waitFor {
                 val s = snapshot(scenario)
+                assertTrue("layout should shrink", s.layoutScale < 1f)
                 assertTrue("page should fit vertically", s.pageHeight <= s.listHeight)
                 assertTrue("page should be narrower than the screen", s.pageWidth < s.listWidth)
                 assertEquals(1f, s.drawZoom)
@@ -77,7 +81,7 @@ class ZoomTest {
 
     @Test
     fun fitWidthFillsTheWidth() {
-        openPdf(3).use { scenario ->
+        openTallPdf(3, "tall-3.pdf").use { scenario ->
             waitForPageLabel("1 / 3")
             chooseZoom(context.getString(R.string.zoom_fit_page))
             waitFor { assertTrue(snapshot(scenario).layoutScale < 1f) }
@@ -166,13 +170,13 @@ class ZoomTest {
 
     @Test
     fun fitPageIsRememberedForTheNextDocument() {
-        openPdf(3).use { scenario ->
+        openTallPdf(3, "tall-3.pdf").use { scenario ->
             waitForPageLabel("1 / 3")
             chooseZoom(context.getString(R.string.zoom_fit_page))
             waitFor { assertTrue(snapshot(scenario).layoutScale < 1f) }
         }
         assertEquals(FitMode.FIT_PAGE, ReaderSettings(context).fitMode(ViewMode.CONTINUOUS))
-        openPdf(4).use { scenario ->
+        openTallPdf(4, "tall-4.pdf").use { scenario ->
             waitForPageLabel("1 / 4")
             waitFor { assertTrue(snapshot(scenario).layoutScale < 1f) }
         }

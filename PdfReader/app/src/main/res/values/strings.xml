@@ -53,7 +53,7 @@
     <string name="previous_match">Previous match</string>
     <string name="next_match">Next match</string>
     <string name="close_search">Close search</string>
-    <string name="tab_search">Search</string>
+    <string name="tab_search">Search results</string>
     <string name="search_results_empty">Search the document to list every match here.</string>
     <string name="zoom_fit_width">Fit width</string>
     <string name="zoom_fit_page">Fit page</string>

@@ -48,7 +48,7 @@ class OutlineAndBookmarksTest {
     private fun openPanelTab(tab: Int) {
         onView(withContentDescription(R.string.open_side_panel)).perform(click())
         waitFor { onView(withId(R.id.drawer)).check(matches(isOpen())) }
-        onView(withText(tab)).perform(click())
+        onView(withContentDescription(tab)).perform(click())
     }
 
     private fun outlineRow(title: String) = allOf(withId(R.id.outlineTitle), withText(title))

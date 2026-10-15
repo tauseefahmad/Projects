@@ -136,7 +136,7 @@ class SearchTest {
             waitForCount("1 of 5")
             onView(withContentDescription(R.string.open_side_panel)).perform(click())
             waitFor { onView(withId(R.id.drawer)).check(matches(isOpen())) }
-            onView(withText(R.string.tab_search)).perform(click())
+            onView(withContentDescription(R.string.tab_search)).perform(click())
             waitFor { onView(withId(R.id.searchResults)).check(matches(isDisplayed())) }
             scenario.onActivity { assertEquals(5, it.findViewById<RecyclerView>(R.id.searchResults).adapter!!.itemCount) }
             onView(withId(R.id.searchResults)).perform(actionOnItemAtPosition<RecyclerView.ViewHolder>(3, click()))

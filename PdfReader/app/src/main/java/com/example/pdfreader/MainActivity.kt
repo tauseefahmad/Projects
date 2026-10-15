@@ -268,10 +268,15 @@ class MainActivity : AppCompatActivity() {
 
         val tabs = findViewById<TabLayout>(R.id.sideTabs)
         sideTabs = tabs
-        tabs.addTab(tabs.newTab().setText(R.string.tab_pages))
-        tabs.addTab(tabs.newTab().setText(R.string.tab_outline))
-        tabs.addTab(tabs.newTab().setText(R.string.tab_bookmarks))
-        tabs.addTab(tabs.newTab().setText(R.string.tab_search))
+        // Icon tabs fit the narrow panel; the labels are their spoken descriptions and tooltips.
+        for ((icon, label) in listOf(
+            R.drawable.ic_grid to R.string.tab_pages,
+            R.drawable.ic_toc to R.string.tab_outline,
+            R.drawable.ic_bookmark_border to R.string.tab_bookmarks,
+            R.drawable.ic_search to R.string.tab_search,
+        )) {
+            tabs.addTab(tabs.newTab().setIcon(icon).setContentDescription(label))
+        }
         searchResultsList = findViewById(R.id.searchResults)
         searchResultsList.layoutManager = LinearLayoutManager(this)
         searchResultsList.adapter = searchResultAdapter

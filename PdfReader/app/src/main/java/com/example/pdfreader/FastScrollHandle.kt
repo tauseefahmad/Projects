@@ -89,6 +89,8 @@ class FastScrollHandle @JvmOverloads constructor(
             }
             MotionEvent.ACTION_MOVE -> if (dragging) scrubTo(event.y)
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                // The finger can lift beyond the last move event; land where it was released.
+                if (dragging && event.actionMasked == MotionEvent.ACTION_UP) scrubTo(event.y)
                 dragging = false
                 invalidate()
             }

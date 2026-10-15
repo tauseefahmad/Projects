@@ -24,8 +24,12 @@ object ReaderTestSupport {
     }
 
     /** Opens a generated PDF of [pageCount] pages as if another app sent it with "Open with". */
-    fun openPdf(pageCount: Int, name: String = "test-$pageCount.pdf"): ActivityScenario<MainActivity> =
-        openUri(TestPdfs.create(context, name, pageCount))
+    fun openPdf(
+        pageCount: Int,
+        name: String = "test-$pageCount.pdf",
+        width: Int = 595,
+        height: Int = 842,
+    ): ActivityScenario<MainActivity> = openUri(TestPdfs.create(context, name, pageCount, width, height))
 
     fun openUri(uri: android.net.Uri): ActivityScenario<MainActivity> {
         val intent = Intent(Intent.ACTION_VIEW, uri, context, MainActivity::class.java)
