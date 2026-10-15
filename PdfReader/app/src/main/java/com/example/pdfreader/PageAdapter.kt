@@ -73,6 +73,14 @@ class PageAdapter(
             notifyItemRangeChanged(0, itemCount, PAYLOAD_FILTER)
         }
 
+    /** Tints pages like warm paper (sepia theme); inverting for dark pages takes precedence. */
+    var sepiaPages = false
+        set(value) {
+            if (field == value) return
+            field = value
+            notifyItemRangeChanged(0, itemCount, PAYLOAD_FILTER)
+        }
+
     // Budget ~1/6 of the app heap for rendered pages.
     private val cache = object : LruCache<String, Bitmap>((Runtime.getRuntime().maxMemory() / 6).toInt()) {
         override fun sizeOf(key: String, value: Bitmap) = value.byteCount
@@ -276,7 +284,7 @@ class PageAdapter(
     }
 
     private fun applyFilter(image: PageView) {
-        image.colorFilter = if (darkPages) PageFilters.INVERT else null
+        image.colorFilter = PageFilters.forPages(darkPages, sepiaPages)
     }
 
     private companion object {
@@ -291,6 +299,24 @@ class PageAdapter(
 }
 
 object PageFilters {
+    fun forPages(invert: Boolean, sepia: Boolean) = when {
+        invert -> INVERT
+        sepia -> SEPIA
+        else -> null
+    }
+
+    /** Warm paper tone: white becomes cream, black stays black. */
+    val SEPIA = ColorMatrixColorFilter(
+        ColorMatrix(
+            floatArrayOf(
+                0.393f, 0.769f, 0.189f, 0f, 0f,
+                0.349f, 0.686f, 0.168f, 0f, 0f,
+                0.272f, 0.534f, 0.131f, 0f, 0f,
+                0f, 0f, 0f, 1f, 0f,
+            )
+        )
+    )
+
     /** Inverts page colors for night reading. */
     val INVERT = ColorMatrixColorFilter(
         ColorMatrix(

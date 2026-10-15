@@ -87,6 +87,29 @@
         android:title="@string/rotate_view"
         app:showAsAction="never" />
     <item
+        android:id="@+id/action_theme"
+        android:title="@string/theme_menu"
+        app:showAsAction="never">
+        <menu>
+            <group
+                android:id="@+id/group_theme"
+                android:checkableBehavior="single">
+                <item
+                    android:id="@+id/theme_system"
+                    android:title="@string/theme_system" />
+                <item
+                    android:id="@+id/theme_light"
+                    android:title="@string/theme_light" />
+                <item
+                    android:id="@+id/theme_dark"
+                    android:title="@string/theme_dark" />
+                <item
+                    android:id="@+id/theme_sepia"
+                    android:title="@string/theme_sepia" />
+            </group>
+        </menu>
+    </item>
+    <item
         android:id="@+id/action_dark_pages"
         android:checkable="true"
         android:title="@string/dark_pages"

@@ -88,7 +88,7 @@
             android:id="@+id/pages"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="@color/reader_background"
+            android:background="?attr/readerBackground"
             android:clipToPadding="false"
             android:focusable="true"
             android:focusableInTouchMode="true"

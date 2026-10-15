@@ -1,5 +1,17 @@
 <resources>
     <style name="Theme.PdfReader" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/brand</item>
+        <item name="readerBackground">@color/reader_background</item>
+    </style>
+
+    <!-- Warm, paper-like light theme. -->
+    <style name="Theme.PdfReader.Sepia">
+        <item name="colorPrimary">@color/sepia_primary</item>
+        <item name="colorSurface">@color/sepia_surface</item>
+        <item name="colorSurfaceContainer">@color/sepia_surface</item>
+        <item name="colorSurfaceContainerHigh">@color/sepia_surface_high</item>
+        <item name="colorOnSurface">@color/sepia_on_surface</item>
+        <item name="android:colorBackground">@color/sepia_surface</item>
+        <item name="readerBackground">@color/sepia_reader_background</item>
     </style>
 </resources>

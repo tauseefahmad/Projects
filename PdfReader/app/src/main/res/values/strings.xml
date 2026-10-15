@@ -2,7 +2,7 @@
     <string name="app_name">PDF Reader</string>
     <string name="open_pdf">Open PDF</string>
     <string name="go_to_page">Go to page</string>
-    <string name="dark_pages">Dark pages</string>
+    <string name="dark_pages">Invert page colors (night reading)</string>
     <string name="close_document">Close document</string>
     <string name="empty_title">No document open</string>
     <string name="empty_subtitle">Open a PDF from your device, or pick one you read recently.</string>
@@ -38,6 +38,11 @@
     <string name="search">Search</string>
     <string name="share">Share</string>
     <string name="rotate_view">Rotate view</string>
+    <string name="theme_menu">Theme</string>
+    <string name="theme_system">Follow system</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="theme_sepia">Sepia</string>
     <string name="print">Print</string>
     <string name="properties">Document properties</string>
     <string name="close">Close</string>

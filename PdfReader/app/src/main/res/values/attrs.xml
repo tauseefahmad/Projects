@@ -1,0 +1,4 @@
+<resources>
+    <!-- Background behind the pages. -->
+    <attr name="readerBackground" format="color" />
+</resources>

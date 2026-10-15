@@ -48,6 +48,13 @@ class ThumbnailAdapter(
             notifyItemRangeChanged(0, itemCount)
         }
 
+    var sepiaPages = false
+        set(value) {
+            if (field == value) return
+            field = value
+            notifyItemRangeChanged(0, itemCount)
+        }
+
     // Thumbnails are tiny, so a small budget holds many of them.
     private val cache = object : LruCache<Int, Bitmap>((Runtime.getRuntime().maxMemory() / 16).toInt()) {
         override fun sizeOf(key: Int, value: Bitmap) = value.byteCount
@@ -79,7 +86,7 @@ class ThumbnailAdapter(
             this.width = width
             this.height = height
         }
-        holder.image.colorFilter = if (darkPages) PageFilters.INVERT else null
+        holder.image.colorFilter = PageFilters.forPages(darkPages, sepiaPages)
 
         val selected = position == currentPage
         holder.itemView.isSelected = selected

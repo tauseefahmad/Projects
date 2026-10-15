@@ -21,6 +21,9 @@ object ReaderTestSupport {
         context.getSharedPreferences(ReaderSettings.PREFS_NAME, Context.MODE_PRIVATE).edit().clear().commit()
         context.getSharedPreferences("recent_files", Context.MODE_PRIVATE).edit().clear().commit()
         context.getSharedPreferences(BookmarkStore.PREFS_NAME, Context.MODE_PRIVATE).edit().clear().commit()
+        InstrumentationRegistry.getInstrumentation().runOnMainSync {
+            androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+        }
     }
 
     /** Opens a generated PDF of [pageCount] pages as if another app sent it with "Open with". */

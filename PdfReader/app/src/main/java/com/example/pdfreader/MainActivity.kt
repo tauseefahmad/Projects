@@ -21,6 +21,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.view.GravityCompat
 import androidx.core.view.ViewCompat
 import androidx.drawerlayout.widget.DrawerLayout
@@ -145,6 +146,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        if (settings.theme == AppTheme.SEPIA) setTheme(R.style.Theme_PdfReader_Sepia)
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -439,6 +441,10 @@ class MainActivity : AppCompatActivity() {
                 R.id.action_go_to_page -> showGoToPageDialog()
                 R.id.action_bookmark -> toggleBookmark()
                 R.id.action_rotate -> rotateView()
+                R.id.theme_system -> setAppTheme(AppTheme.SYSTEM)
+                R.id.theme_light -> setAppTheme(AppTheme.LIGHT)
+                R.id.theme_dark -> setAppTheme(AppTheme.DARK)
+                R.id.theme_sepia -> setAppTheme(AppTheme.SEPIA)
                 R.id.action_properties -> showProperties()
                 R.id.action_share -> shareDocument()
                 R.id.action_print -> printDocument()
@@ -488,7 +494,25 @@ class MainActivity : AppCompatActivity() {
             }
         ).isChecked = true
         menu.findItem(R.id.action_dark_pages).isChecked = settings.darkPages
+        menu.findItem(
+            when (settings.theme) {
+                AppTheme.SYSTEM -> R.id.theme_system
+                AppTheme.LIGHT -> R.id.theme_light
+                AppTheme.DARK -> R.id.theme_dark
+                AppTheme.SEPIA -> R.id.theme_sepia
+            }
+        ).isChecked = true
         menu.findItem(R.id.action_volume_keys).isChecked = settings.volumeKeysTurnPages
+    }
+
+    private fun setAppTheme(theme: AppTheme) {
+        if (theme == settings.theme) return
+        val wasSepia = settings.theme == AppTheme.SEPIA
+        settings.theme = theme
+        val nightModeChanged = AppCompatDelegate.getDefaultNightMode() != theme.nightMode
+        // Changing night mode recreates the screen by itself; sepia <-> light needs a nudge.
+        AppCompatDelegate.setDefaultNightMode(theme.nightMode)
+        if (!nightModeChanged && (wasSepia || theme == AppTheme.SEPIA)) recreate()
     }
 
     /** Applies a layout setting change while keeping the reader on the same page. */
@@ -568,6 +592,7 @@ class MainActivity : AppCompatActivity() {
                 drawer.closeDrawer(GravityCompat.START)
             }.also {
                 it.darkPages = settings.darkPages
+                it.sepiaPages = settings.theme == AppTheme.SEPIA
                 it.rotation = viewModel.viewRotation
             }
         }
@@ -598,6 +623,7 @@ class MainActivity : AppCompatActivity() {
         val spreads = Spreads(document.pageCount, settings.spreadMode)
         adapter = PageAdapter(document, lifecycleScope, spreads, viewMode).also {
             it.darkPages = settings.darkPages
+            it.sepiaPages = settings.theme == AppTheme.SEPIA
             it.highlightProvider = ::highlightsFor
             it.rotation = viewModel.viewRotation
         }
