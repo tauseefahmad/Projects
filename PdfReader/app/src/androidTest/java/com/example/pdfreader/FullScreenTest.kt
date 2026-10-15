@@ -2,70 +2,72 @@ package com.example.pdfreader
 
 import android.view.InputDevice
 import android.view.MotionEvent
+import android.view.View
 import android.view.WindowManager
+import android.widget.TextView
 import androidx.test.core.app.ActivityScenario
-import androidx.test.espresso.Espresso.onView
-import androidx.test.espresso.Espresso.openActionBarOverflowOrOptionsMenu
-import androidx.test.espresso.Espresso.pressBack
-import androidx.test.espresso.action.CoordinatesProvider
-import androidx.test.espresso.action.GeneralClickAction
-import androidx.test.espresso.action.Press
-import androidx.test.espresso.action.Tap
-import androidx.test.espresso.action.ViewActions.click
-import androidx.test.espresso.assertion.ViewAssertions.matches
-import androidx.test.espresso.matcher.ViewMatchers.Visibility
-import androidx.test.espresso.matcher.ViewMatchers.withEffectiveVisibility
-import androidx.test.espresso.matcher.ViewMatchers.withId
-import androidx.test.espresso.matcher.ViewMatchers.withText
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.example.pdfreader.ReaderTestSupport.context
 import com.example.pdfreader.ReaderTestSupport.openPdf
 import com.example.pdfreader.ReaderTestSupport.waitFor
 import com.example.pdfreader.ReaderTestSupport.waitForPageLabel
+import com.google.android.material.appbar.MaterialToolbar
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 
+/**
+ * Full screen. The first time an app hides the system bars, Android shows a "Viewing full
+ * screen" notice in a system window over it, which takes input focus and swallows injected
+ * touches and keys. So these tests drive the screen directly (menu actions, touches delivered
+ * to the page list, Back through the dispatcher) and read its state from the activity.
+ */
 @RunWith(AndroidJUnit4::class)
 class FullScreenTest {
 
     @Before
-    fun setUp() {
-        ReaderTestSupport.resetAppState()
+    fun setUp() = ReaderTestSupport.resetAppState()
+
+    private fun enterFullScreen(scenario: ActivityScenario<MainActivity>) {
+        scenario.onActivity { it.findViewById<MaterialToolbar>(R.id.toolbar).menu.performIdentifierAction(R.id.action_full_screen, 0) }
+        waitFor { assertFalse(toolbarShown(scenario)) }
     }
 
-    private fun enterFullScreen() {
-        openActionBarOverflowOrOptionsMenu(context)
-        onView(withText(R.string.full_screen)).perform(click())
-        waitFor { onView(withId(R.id.toolbar)).check(matches(withEffectiveVisibility(Visibility.GONE))) }
-        dismissFullScreenNotice()
+    private fun toolbarShown(scenario: ActivityScenario<MainActivity>): Boolean {
+        var shown = false
+        scenario.onActivity { shown = it.findViewById<View>(R.id.toolbar).visibility == View.VISIBLE }
+        return shown
     }
 
-    /**
-     * The first time an app hides the system bars, Android shows a "Viewing full screen" notice
-     * in a system window over the app, which would swallow the test's taps. Close it.
-     */
-    private fun dismissFullScreenNotice() {
-        val device = androidx.test.uiautomator.UiDevice.getInstance(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation())
-        val button = device.wait(androidx.test.uiautomator.Until.findObject(androidx.test.uiautomator.By.text(java.util.regex.Pattern.compile("(?i)got it"))), 2_000)
-        button?.click()
-        device.waitForIdle()
+    private fun navBarShown(scenario: ActivityScenario<MainActivity>): Boolean {
+        var shown = false
+        scenario.onActivity { shown = it.findViewById<View>(R.id.navBar).visibility == View.VISIBLE }
+        return shown
+    }
+
+    private fun label(scenario: ActivityScenario<MainActivity>): String {
+        var text = ""
+        scenario.onActivity { text = it.findViewById<TextView>(R.id.pageLabel).text.toString() }
+        return text
     }
 
     /** Taps the page list at a fraction of its width, halfway down. */
-    private fun tapAt(widthFraction: Float) {
-        onView(withId(R.id.pages)).perform(
-            GeneralClickAction(
-                Tap.SINGLE,
-                CoordinatesProvider { view ->
-                    val location = IntArray(2).also(view::getLocationOnScreen)
-                    floatArrayOf(location[0] + view.width * widthFraction, location[1] + view.height / 2f)
-                },
-                Press.FINGER, InputDevice.SOURCE_TOUCHSCREEN, MotionEvent.BUTTON_PRIMARY,
-            )
-        )
+    private fun tapAt(scenario: ActivityScenario<MainActivity>, widthFraction: Float) {
+        scenario.onActivity { activity ->
+            val list = activity.findViewById<ZoomableRecyclerView>(R.id.pages)
+            val x = list.width * widthFraction
+            val y = list.height / 2f
+            val time = android.os.SystemClock.uptimeMillis()
+            for ((action, t) in listOf(MotionEvent.ACTION_DOWN to time, MotionEvent.ACTION_UP to time + 50)) {
+                val event = MotionEvent.obtain(time, t, action, x, y, 0).apply { source = InputDevice.SOURCE_TOUCHSCREEN }
+                list.dispatchTouchEvent(event)
+                event.recycle()
+            }
+        }
+        // A single tap is confirmed once the double-tap window has passed.
+        Thread.sleep(android.view.ViewConfiguration.getDoubleTapTimeout() + 150L)
     }
 
     private fun keepsScreenOn(scenario: ActivityScenario<MainActivity>): Boolean {
@@ -79,23 +81,25 @@ class FullScreenTest {
         openPdf(4).use { scenario ->
             waitForPageLabel("1 / 4")
             assertFalse(keepsScreenOn(scenario))
-            enterFullScreen()
-            onView(withId(R.id.navBar)).check(matches(withEffectiveVisibility(Visibility.GONE)))
+            enterFullScreen(scenario)
+            assertFalse(navBarShown(scenario))
             assertTrue(keepsScreenOn(scenario))
         }
     }
 
     @Test
     fun tappingTheEdgesTurnsPages() {
-        openPdf(4).use {
+        openPdf(4).use { scenario ->
             waitForPageLabel("1 / 4")
-            enterFullScreen()
-            tapAt(0.92f)
-            waitForPageLabel("2 / 4")
-            tapAt(0.92f)
-            waitForPageLabel("3 / 4")
-            tapAt(0.08f)
-            waitForPageLabel("2 / 4")
+            enterFullScreen(scenario)
+            tapAt(scenario, 0.92f)
+            waitFor { assertEquals("2 / 4", label(scenario)) }
+            tapAt(scenario, 0.92f)
+            waitFor { assertEquals("3 / 4", label(scenario)) }
+            tapAt(scenario, 0.08f)
+            waitFor { assertEquals("2 / 4", label(scenario)) }
+            // Still full screen after turning pages.
+            assertFalse(toolbarShown(scenario))
         }
     }
 
@@ -103,16 +107,17 @@ class FullScreenTest {
     fun tappingTheMiddleOrBackLeavesFullScreen() {
         openPdf(4).use { scenario ->
             waitForPageLabel("1 / 4")
-            enterFullScreen()
-            tapAt(0.5f)
-            waitFor { onView(withId(R.id.toolbar)).check(matches(withEffectiveVisibility(Visibility.VISIBLE))) }
+            enterFullScreen(scenario)
+            tapAt(scenario, 0.5f)
+            waitFor { assertTrue(toolbarShown(scenario)) }
             assertFalse(keepsScreenOn(scenario))
 
-            enterFullScreen()
-            pressBack()
-            waitFor { onView(withId(R.id.toolbar)).check(matches(withEffectiveVisibility(Visibility.VISIBLE))) }
+            enterFullScreen(scenario)
+            scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+            waitFor { assertTrue(toolbarShown(scenario)) }
             // Back only left full screen; the document is still open.
-            waitForPageLabel("1 / 4")
+            waitFor { assertEquals("1 / 4", label(scenario)) }
+            assertTrue(navBarShown(scenario))
         }
     }
 
