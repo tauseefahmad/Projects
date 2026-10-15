@@ -127,6 +127,15 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
         if (_state.value is ReaderState.Error) _state.value = ReaderState.Empty
     }
 
+    /** Reopens the current document, e.g. after its pages were reorganized and saved. */
+    fun reload() {
+        val ready = _state.value as? ReaderState.Ready ?: return
+        savePage()
+        closeCurrent()
+        _state.value = ReaderState.Empty
+        open(ready.uri, ready.name)
+    }
+
     /** Downloads a PDF from [url] and opens it. */
     fun download(url: String) {
         savePage()

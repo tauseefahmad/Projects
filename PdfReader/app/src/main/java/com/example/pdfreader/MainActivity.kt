@@ -124,11 +124,18 @@ class MainActivity : AppCompatActivity() {
 
     private val openDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
-            // Keep access across restarts so the file can be reopened from "Recent".
+            // Keep access across restarts so the file can be reopened from "Recent" (and, where
+            // the provider allows it, saved in place after organizing pages).
             try {
-                contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                contentResolver.takePersistableUriPermission(
+                    uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                )
             } catch (e: SecurityException) {
-                // Provider doesn't offer persistable access; it still works for this session.
+                try {
+                    contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                } catch (e: SecurityException) {
+                    // Provider doesn't offer persistable access; it still works for this session.
+                }
             }
             openUri(uri)
         }
@@ -146,6 +153,25 @@ class MainActivity : AppCompatActivity() {
             }
             Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private val organize = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK && result.data?.getBooleanExtra(OrganizerActivity.EXTRA_RELOAD, false) == true) {
+            viewModel.updatePage(currentPage())
+            viewModel.reload()
+        }
+    }
+
+    /** Whether we may overwrite [uri]: our own files, or a grant that includes writing. */
+    private fun canWrite(uri: Uri): Boolean =
+        uri.authority == "$packageName.files" ||
+            checkCallingOrSelfUriPermission(uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+    private fun openOrganizer() {
+        val ready = shownReady ?: return
+        // Decrypted copies of protected files can only be saved as a copy, never over the original.
+        val inPlace = ready.contentUri == ready.uri && canWrite(ready.uri)
+        organize.launch(OrganizerActivity.intent(this, ready.contentUri, ready.name, inPlace))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -450,6 +476,7 @@ class MainActivity : AppCompatActivity() {
                 R.id.action_go_to_page -> showGoToPageDialog()
                 R.id.action_bookmark -> toggleBookmark()
                 R.id.action_rotate -> rotateView()
+                R.id.action_organize -> openOrganizer()
                 R.id.action_full_screen -> setFullScreen(true)
                 R.id.action_keep_screen_on -> {
                     settings.keepScreenOn = !settings.keepScreenOn
@@ -566,7 +593,7 @@ class MainActivity : AppCompatActivity() {
         toolbar.menu.findItem(R.id.action_bookmark).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_search).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_rotate).isVisible = ready != null
-        for (id in listOf(R.id.action_share, R.id.action_print, R.id.action_save_copy, R.id.action_properties, R.id.action_full_screen)) {
+        for (id in listOf(R.id.action_share, R.id.action_print, R.id.action_save_copy, R.id.action_properties, R.id.action_full_screen, R.id.action_organize)) {
             toolbar.menu.findItem(id).isVisible = ready != null
         }
         toolbar.menu.findItem(R.id.action_close).isVisible = ready != null

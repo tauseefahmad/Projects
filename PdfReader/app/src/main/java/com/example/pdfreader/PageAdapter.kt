@@ -266,10 +266,22 @@ class PageAdapter(
     }
 
     /** The first bind can happen before the list has a size; retry after layout. */
-    private fun bindLater(holder: ItemHolder, position: Int) {
-        holder.itemView.post {
-            if (holder.bindingAdapterPosition == position) onBindViewHolder(holder, position)
-        }
+    private var waitingForLayout = false
+
+    private fun bindLater(@Suppress("UNUSED_PARAMETER") holder: ItemHolder, @Suppress("UNUSED_PARAMETER") position: Int) {
+        // Wait for the list's next real layout rather than re-posting (which could spin forever
+        // and never let the main thread go idle while the list has no size).
+        val list = recyclerView ?: return
+        if (waitingForLayout) return
+        waitingForLayout = true
+        list.addOnLayoutChangeListener(object : View.OnLayoutChangeListener {
+            override fun onLayoutChange(v: View, l: Int, t: Int, r: Int, b: Int, ol: Int, ot: Int, or: Int, ob: Int) {
+                if (r - l <= 0) return
+                v.removeOnLayoutChangeListener(this)
+                waitingForLayout = false
+                v.post { notifyDataSetChanged() }
+            }
+        })
     }
 
     override fun onViewRecycled(holder: ItemHolder) {

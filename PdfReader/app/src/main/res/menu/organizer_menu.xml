@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item android:id="@+id/org_undo" android:icon="@drawable/ic_undo" android:title="@string/undo" app:showAsAction="ifRoom" />
+    <item android:id="@+id/org_redo" android:icon="@drawable/ic_redo" android:title="@string/redo" app:showAsAction="ifRoom" />
+    <item android:id="@+id/org_rotate" android:icon="@drawable/ic_rotate_right" android:title="@string/rotate_right" app:showAsAction="ifRoom" />
+    <item android:id="@+id/org_delete" android:icon="@drawable/ic_delete" android:title="@string/delete_pages" app:showAsAction="ifRoom" />
+    <item android:id="@+id/org_save" android:icon="@drawable/ic_save" android:title="@string/save" app:showAsAction="ifRoom" />
+    <item android:id="@+id/org_rotate_left" android:title="@string/rotate_left" app:showAsAction="never" />
+    <item android:id="@+id/org_rotate_180" android:title="@string/rotate_180" app:showAsAction="never" />
+    <item android:id="@+id/org_duplicate" android:title="@string/duplicate_pages" app:showAsAction="never" />
+    <item android:id="@+id/org_move" android:title="@string/move_pages" app:showAsAction="never" />
+    <item android:id="@+id/org_extract" android:title="@string/extract_pages" app:showAsAction="never" />
+    <item android:id="@+id/org_insert" android:title="@string/insert_menu" app:showAsAction="never">
+        <menu>
+            <item android:id="@+id/org_insert_blank_a4" android:title="@string/insert_blank_a4" />
+            <item android:id="@+id/org_insert_blank_letter" android:title="@string/insert_blank_letter" />
+            <item android:id="@+id/org_insert_blank_same" android:title="@string/insert_blank_same" />
+            <item android:id="@+id/org_insert_pdf" android:title="@string/insert_pdf" />
+            <item android:id="@+id/org_insert_image" android:title="@string/insert_image" />
+        </menu>
+    </item>
+    <item android:id="@+id/org_select_all" android:title="@string/select_all" app:showAsAction="never" />
+    <item android:id="@+id/org_select_none" android:title="@string/select_none" app:showAsAction="never" />
+    <item android:id="@+id/org_save_copy" android:title="@string/save_copy" app:showAsAction="never" />
+</menu>

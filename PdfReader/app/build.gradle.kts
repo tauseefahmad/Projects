@@ -15,6 +15,8 @@ android {
         versionName = "0.2.${System.getenv("GITHUB_RUN_NUMBER") ?: "0"}"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // A stuck test fails after two minutes instead of hanging the whole run.
+        testInstrumentationRunnerArguments["timeout_msec"] = "120000"
     }
 
     // A committed debug key, so every CI build can be installed over the previous one.

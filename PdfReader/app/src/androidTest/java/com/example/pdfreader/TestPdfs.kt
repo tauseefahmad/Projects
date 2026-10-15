@@ -118,6 +118,26 @@ object TestPdfs {
         return File(context.cacheDir, "shared/bytes-$pageCount.pdf").readBytes()
     }
 
+    /** Each page's extracted text (trimmed), read back with PdfBox. */
+    fun pageTexts(context: Context, uri: Uri): List<String> {
+        com.tom_roush.pdfbox.android.PDFBoxResourceLoader.init(context)
+        return context.contentResolver.openInputStream(uri)!!.use { input ->
+            com.tom_roush.pdfbox.pdmodel.PDDocument.load(input).use { doc ->
+                (1..doc.numberOfPages).map { n ->
+                    com.tom_roush.pdfbox.text.PDFTextStripper().apply { startPage = n; endPage = n }.getText(doc).trim()
+                }
+            }
+        }
+    }
+
+    /** Each page's /Rotate value. */
+    fun pageRotations(context: Context, uri: Uri): List<Int> {
+        com.tom_roush.pdfbox.android.PDFBoxResourceLoader.init(context)
+        return context.contentResolver.openInputStream(uri)!!.use { input ->
+            com.tom_roush.pdfbox.pdmodel.PDDocument.load(input).use { doc -> doc.pages.map { it.rotation } }
+        }
+    }
+
     /** An outline entry for [createWithOutline]: [page] is 0-based. */
     class Entry(val title: String, val page: Int, val children: List<Entry> = emptyList())
 

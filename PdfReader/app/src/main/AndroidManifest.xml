@@ -48,6 +48,10 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".OrganizerActivity"
+            android:exported="false" />
+
         <!-- Shares files from cache/shared (copies to send, print, or test fixtures). -->
         <provider
             android:name="androidx.core.content.FileProvider"

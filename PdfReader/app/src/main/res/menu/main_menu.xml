@@ -83,6 +83,10 @@
         android:title="@string/save_copy"
         app:showAsAction="never" />
     <item
+        android:id="@+id/action_organize"
+        android:title="@string/organize_pages"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/action_properties"
         android:title="@string/properties"
         app:showAsAction="never" />
