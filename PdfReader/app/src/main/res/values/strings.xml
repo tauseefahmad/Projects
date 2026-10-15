@@ -38,6 +38,8 @@
     <string name="search">Search</string>
     <string name="share">Share</string>
     <string name="rotate_view">Rotate view</string>
+    <string name="full_screen">Full screen</string>
+    <string name="keep_screen_on">Keep screen on while reading</string>
     <string name="theme_menu">Theme</string>
     <string name="theme_system">Follow system</string>
     <string name="theme_light">Light</string>

@@ -36,6 +36,8 @@ class KeyNavigationTest {
         assertNull(action(KeyEvent.KEYCODE_F))
         assertEquals(NavAction.ROTATE, action(KeyEvent.KEYCODE_R, ctrl = true))
         assertNull(action(KeyEvent.KEYCODE_R))
+        assertEquals(NavAction.FULL_SCREEN, action(KeyEvent.KEYCODE_F11))
+        assertEquals(NavAction.EXIT_FULL_SCREEN, action(KeyEvent.KEYCODE_ESCAPE))
     }
 
     @Test

@@ -43,6 +43,10 @@ class ReaderSettings(context: Context) {
         get() = enumValue(prefs.getString(KEY_THEME, null), AppTheme.SYSTEM)
         set(value) = prefs.edit().putString(KEY_THEME, value.name).apply()
 
+    var keepScreenOn: Boolean
+        get() = prefs.getBoolean(KEY_KEEP_SCREEN_ON, false)
+        set(value) = prefs.edit().putBoolean(KEY_KEEP_SCREEN_ON, value).apply()
+
     var darkPages: Boolean
         get() = prefs.getBoolean(KEY_DARK_PAGES, false)
         set(value) = prefs.edit().putBoolean(KEY_DARK_PAGES, value).apply()
@@ -58,5 +62,6 @@ class ReaderSettings(context: Context) {
         private const val KEY_DARK_PAGES = "dark_pages"
         private const val KEY_FIT_MODE = "fit_mode_"
         private const val KEY_THEME = "theme"
+        private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
     }
 }

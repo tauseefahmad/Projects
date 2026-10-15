@@ -44,6 +44,9 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
     val recentFiles = RecentFiles(application)
     val bookmarks = BookmarkStore(application)
 
+    /** Immersive full-screen reading is on. */
+    var fullScreen = false
+
     /** Clockwise view rotation of the open document (display only; the file is unchanged). */
     var viewRotation = 0
 

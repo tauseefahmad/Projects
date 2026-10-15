@@ -48,6 +48,7 @@ import android.graphics.RectF
 import android.view.inputmethod.EditorInfo
 import androidx.appcompat.widget.PopupMenu
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.widget.doAfterTextChanged
 import androidx.core.content.IntentCompat
 import com.example.pdfreader.core.Downloads
@@ -174,6 +175,7 @@ class MainActivity : AppCompatActivity() {
         pages.viewportChangedListeners += { textSelection.onViewportChanged() }
         pages.onLongPress = { x, y -> textSelection.startAt(x, y) }
         pages.onSingleTap = ::onPageTap
+        onBackPressedDispatcher.addCallback(this, exitFullScreenOnBack)
 
         val root = findViewById<View>(R.id.root)
         val sidePanel = findViewById<View>(R.id.sidePanel)
@@ -257,6 +259,8 @@ class MainActivity : AppCompatActivity() {
                         NavAction.ZOOM_FIT -> zoom.fitWidth()
                         NavAction.SEARCH -> if (event.repeatCount == 0) openSearch()
                         NavAction.ROTATE -> if (event.repeatCount == 0) rotateView()
+                        NavAction.FULL_SCREEN -> if (event.repeatCount == 0) setFullScreen(!viewModel.fullScreen)
+                        NavAction.EXIT_FULL_SCREEN -> setFullScreen(false)
                     }
                 }
                 return true
@@ -446,6 +450,12 @@ class MainActivity : AppCompatActivity() {
                 R.id.action_go_to_page -> showGoToPageDialog()
                 R.id.action_bookmark -> toggleBookmark()
                 R.id.action_rotate -> rotateView()
+                R.id.action_full_screen -> setFullScreen(true)
+                R.id.action_keep_screen_on -> {
+                    settings.keepScreenOn = !settings.keepScreenOn
+                    updateKeepScreenOn()
+                    syncMenuChecks()
+                }
                 R.id.theme_system -> setAppTheme(AppTheme.SYSTEM)
                 R.id.theme_light -> setAppTheme(AppTheme.LIGHT)
                 R.id.theme_dark -> setAppTheme(AppTheme.DARK)
@@ -512,6 +522,7 @@ class MainActivity : AppCompatActivity() {
             }
         ).isChecked = true
         menu.findItem(R.id.action_volume_keys).isChecked = settings.volumeKeysTurnPages
+        menu.findItem(R.id.action_keep_screen_on).isChecked = settings.keepScreenOn
     }
 
     private fun setAppTheme(theme: AppTheme) {
@@ -548,14 +559,14 @@ class MainActivity : AppCompatActivity() {
         progress.isVisible = state is ReaderState.Loading || state is ReaderState.Downloading
         val ready = state as? ReaderState.Ready
         pages.isVisible = ready != null
-        navBar.isVisible = ready != null
+        navBar.isVisible = ready != null && !viewModel.fullScreen
         emptyState.isVisible = state is ReaderState.Empty || state is ReaderState.Error || state is ReaderState.NeedsPassword
         toolbar.menu.findItem(R.id.action_go_to_page).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_zoom).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_bookmark).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_search).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_rotate).isVisible = ready != null
-        for (id in listOf(R.id.action_share, R.id.action_print, R.id.action_save_copy, R.id.action_properties)) {
+        for (id in listOf(R.id.action_share, R.id.action_print, R.id.action_save_copy, R.id.action_properties, R.id.action_full_screen)) {
             toolbar.menu.findItem(id).isVisible = ready != null
         }
         toolbar.menu.findItem(R.id.action_close).isVisible = ready != null
@@ -578,6 +589,8 @@ class MainActivity : AppCompatActivity() {
         }
         if (ready !== shownReady) {
             shownReady = ready
+            // Full screen survives rotation, but ends when the document closes.
+            setFullScreen(ready != null && viewModel.fullScreen)
             textSelection.clear()
             closeSearch()
             search.structure = ready?.structure
@@ -876,19 +889,67 @@ class MainActivity : AppCompatActivity() {
             textSelection.clear()
             return
         }
-        val (view, local) = pages.pageViewAt(x, y) ?: return
-        val structure = shownReady?.structure ?: return
-        val page = view.page
+        val hit = pages.pageViewAt(x, y)
+        val structure = shownReady?.structure
         lifecycleScope.launch {
-            val links = try {
-                structure.links(page)
-            } catch (e: Exception) {
-                emptyList()
+            // Links win over everything else.
+            val link = if (hit != null && structure != null) {
+                val (view, local) = hit
+                val links = try {
+                    structure.links(view.page)
+                } catch (e: Exception) {
+                    emptyList()
+                }
+                val point = view.toPagePoint(local.x, local.y)
+                Links.hit(links, point.x, point.y)
+            } else {
+                null
             }
-            val point = view.toPagePoint(local.x, local.y)
-            val link = Links.hit(links, point.x, point.y) ?: return@launch
-            link.targetPage?.let { goToPage(it) }
-            link.uri?.let(::confirmOpenLink)
+            when {
+                link != null -> {
+                    link.targetPage?.let { goToPage(it) }
+                    link.uri?.let(::confirmOpenLink)
+                }
+                // Full screen: tap the left/right edge to turn pages, the middle to show the controls.
+                viewModel.fullScreen -> when {
+                    x < pages.width * EDGE_TAP_ZONE -> stepItems(-1)
+                    x > pages.width * (1 - EDGE_TAP_ZONE) -> stepItems(1)
+                    else -> setFullScreen(false)
+                }
+            }
+        }
+    }
+
+    // --- Full screen -------------------------------------------------------------------------
+
+    private val exitFullScreenOnBack = object : androidx.activity.OnBackPressedCallback(false) {
+        override fun handleOnBackPressed() = setFullScreen(false)
+    }
+
+    /** Immersive reading: hides the app and system bars and keeps the screen awake. */
+    private fun setFullScreen(on: Boolean) {
+        val enable = on && shownReady != null
+        viewModel.fullScreen = enable
+        toolbar.isVisible = !enable
+        navBar.isVisible = !enable && shownReady != null
+        if (enable) closeSearch()
+        val controller = WindowCompat.getInsetsController(window, window.decorView)
+        if (enable) {
+            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller.hide(WindowInsetsCompat.Type.systemBars())
+        } else {
+            controller.show(WindowInsetsCompat.Type.systemBars())
+        }
+        exitFullScreenOnBack.isEnabled = enable
+        updateKeepScreenOn()
+    }
+
+    private fun updateKeepScreenOn() {
+        val keepOn = shownReady != null && (viewModel.fullScreen || settings.keepScreenOn)
+        if (keepOn) {
+            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
     }
 
@@ -1079,6 +1140,7 @@ class MainActivity : AppCompatActivity() {
         const val TAB_BOOKMARKS = 2
         const val TAB_SEARCH = 3
         const val SEARCH_DELAY_MS = 350L
+        const val EDGE_TAP_ZONE = 0.25f
     }
 
     private fun displayName(uri: Uri): String {

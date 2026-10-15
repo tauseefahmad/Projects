@@ -87,6 +87,10 @@
         android:title="@string/properties"
         app:showAsAction="never" />
     <item
+        android:id="@+id/action_full_screen"
+        android:title="@string/full_screen"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/action_rotate"
         android:title="@string/rotate_view"
         app:showAsAction="never" />
@@ -117,6 +121,11 @@
         android:id="@+id/action_dark_pages"
         android:checkable="true"
         android:title="@string/dark_pages"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_keep_screen_on"
+        android:checkable="true"
+        android:title="@string/keep_screen_on"
         app:showAsAction="never" />
     <item
         android:id="@+id/action_volume_keys"
