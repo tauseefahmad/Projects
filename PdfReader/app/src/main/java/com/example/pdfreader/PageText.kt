@@ -9,7 +9,7 @@ import kotlin.math.abs
  * A page's extracted text with each character's box in PDF points (top-left origin, relative
  * to the crop box, as PdfRenderer draws it). Separators added by extraction have no box.
  */
-class PageText(val text: String, private val boxes: FloatArray) {
+class PageText(val text: String, val boxes: FloatArray) {
 
     /** Boxes covering characters [start, end), merged into one rectangle per line. */
     fun boxesFor(start: Int, end: Int): List<RectF> {
@@ -29,6 +29,12 @@ class PageText(val text: String, private val boxes: FloatArray) {
             }
         }
         return result
+    }
+
+    /** Box of one character, or null for separators. */
+    fun boxOf(index: Int): RectF? {
+        if (index !in text.indices || boxes[index * 4].isNaN()) return null
+        return RectF(boxes[index * 4], boxes[index * 4 + 1], boxes[index * 4 + 2], boxes[index * 4 + 3])
     }
 
     companion object {

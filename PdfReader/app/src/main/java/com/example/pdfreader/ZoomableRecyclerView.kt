@@ -43,8 +43,14 @@ class ZoomableRecyclerView @JvmOverloads constructor(
     /** Called when a finger touches the list, i.e. the user starts moving it by hand. */
     var onTouchStart: (() -> Unit)? = null
 
-    /** Called whenever zoom, pan or scroll position changes (detail tiles become stale). */
-    var onViewportChanged: (() -> Unit)? = null
+    /** Long-press at a screen point (e.g. to start selecting text). */
+    var onLongPress: ((x: Float, y: Float) -> Unit)? = null
+
+    /** A confirmed single tap (not part of a double-tap) at a screen point. */
+    var onSingleTap: ((x: Float, y: Float) -> Unit)? = null
+
+    /** Called whenever zoom, pan or scroll position changes (e.g. detail renders become stale). */
+    val viewportChangedListeners = mutableListOf<() -> Unit>()
 
     /** Called when the viewport comes to rest after a gesture, fling or scroll. */
     var onViewportSettled: (() -> Unit)? = null
@@ -83,6 +89,15 @@ class ZoomableRecyclerView @JvmOverloads constructor(
     })
 
     private val gestureDetector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
+        override fun onLongPress(e: MotionEvent) {
+            if (!pinching) onLongPress?.invoke(e.x, e.y)
+        }
+
+        override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+            onSingleTap?.invoke(e.x, e.y)
+            return true
+        }
+
         override fun onDoubleTap(e: MotionEvent): Boolean {
             val target = if (zoom > 1.05f) 1f else DOUBLE_TAP_ZOOM
             animateZoom(target, e.x, e.y)
@@ -93,6 +108,47 @@ class ZoomableRecyclerView @JvmOverloads constructor(
     /** Maps a point on screen to the un-zoomed list coordinates. */
     fun toContentY(screenY: Float) = (screenY - transY) / zoom
     fun toContentX(screenX: Float) = (screenX - transX) / zoom
+
+    /** Maps un-zoomed list coordinates to a point on screen. */
+    fun toScreenX(contentX: Float) = contentX * zoom + transX
+    fun toScreenY(contentY: Float) = contentY * zoom + transY
+
+    /** The page view under a screen point and the point in that view's own coordinates. */
+    fun pageViewAt(screenX: Float, screenY: Float): Pair<PageView, android.graphics.PointF>? {
+        val x = toContentX(screenX)
+        val y = toContentY(screenY)
+        for (i in 0 until childCount) {
+            val row = getChildAt(i) as? android.view.ViewGroup ?: continue
+            for (j in 0 until row.childCount) {
+                val view = row.getChildAt(j) as? PageView ?: continue
+                if (view.page < 0 || view.visibility != VISIBLE) continue
+                val left = row.left + view.left
+                val top = row.top + view.top
+                if (x >= left && x < left + view.width && y >= top && y < top + view.height) {
+                    return view to android.graphics.PointF(x - left, y - top)
+                }
+            }
+        }
+        return null
+    }
+
+    /** The page view currently showing [page], if it is laid out. */
+    fun pageViewFor(page: Int): PageView? {
+        for (i in 0 until childCount) {
+            val row = getChildAt(i) as? android.view.ViewGroup ?: continue
+            for (j in 0 until row.childCount) {
+                val view = row.getChildAt(j) as? PageView ?: continue
+                if (view.page == page && view.visibility == VISIBLE) return view
+            }
+        }
+        return null
+    }
+
+    /** Screen position of a point given in [view]'s own coordinates. */
+    fun screenPointIn(view: PageView, localX: Float, localY: Float): android.graphics.PointF {
+        val row = view.parent as android.view.View
+        return android.graphics.PointF(toScreenX(row.left + view.left + localX), toScreenY(row.top + view.top + localY))
+    }
 
     /** The part of the list (in un-zoomed list coordinates) currently on screen. */
     fun visibleContentRect() = RectF(toContentX(0f), toContentY(0f), toContentX(width.toFloat()), toContentY(height.toFloat()))
@@ -124,7 +180,7 @@ class ZoomableRecyclerView @JvmOverloads constructor(
 
     private fun viewportChanged() {
         invalidate()
-        onViewportChanged?.invoke()
+        viewportChangedListeners.forEach { it() }
     }
 
     private fun zoomTo(newZoom: Float, focusX: Float, focusY: Float) {

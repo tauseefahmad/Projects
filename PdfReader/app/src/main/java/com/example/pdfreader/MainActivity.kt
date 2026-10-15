@@ -71,6 +71,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var recentSection: LinearLayout
     private lateinit var recentList: LinearLayout
     private lateinit var zoom: ZoomController
+    internal lateinit var textSelection: TextSelectionController
     private lateinit var drawer: DrawerLayout
     private lateinit var thumbnails: RecyclerView
     private var thumbnailAdapter: ThumbnailAdapter? = null
@@ -148,6 +149,10 @@ class MainActivity : AppCompatActivity() {
         setUpSidePanel()
         setUpSearch()
         zoom = ZoomController(pages, findViewById(R.id.zoomLabel), lifecycleScope, ::currentItem) { scrollToItem(it) }
+        textSelection = TextSelectionController(this, pages, findViewById(R.id.selectionHandles), lifecycleScope) { shownReady?.structure }
+        pages.viewportChangedListeners += { textSelection.onViewportChanged() }
+        pages.onLongPress = { x, y -> textSelection.startAt(x, y) }
+        pages.onSingleTap = { _, _ -> if (textSelection.isActive) textSelection.clear() }
 
         val root = findViewById<View>(R.id.root)
         val sidePanel = findViewById<View>(R.id.sidePanel)
@@ -504,6 +509,7 @@ class MainActivity : AppCompatActivity() {
         }
         if (ready !== shownReady) {
             shownReady = ready
+            textSelection.clear()
             closeSearch()
             search.structure = ready?.structure
             search.pageCount = ready?.document?.pageCount ?: 0
@@ -546,6 +552,7 @@ class MainActivity : AppCompatActivity() {
 
     /** (Re)builds the list for the current view and spread settings, starting at [page]. */
     private fun applyLayout(document: PdfDocument, page: Int) {
+        textSelection.clear()
         zoom.reset()
         val viewMode = settings.viewMode
         val single = viewMode == ViewMode.SINGLE_PAGE

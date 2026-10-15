@@ -1,4 +1,5 @@
 <resources>
     <item name="page_input" type="id" />
     <item name="bookmark_title_input" type="id" />
+    <item name="action_share_text" type="id" />
 </resources>

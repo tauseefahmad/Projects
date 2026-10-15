@@ -36,6 +36,17 @@ class PageView(context: Context) : AppCompatImageView(context) {
             invalidate()
         }
 
+    /** Selected text, in PDF points. */
+    var selection: List<RectF> = emptyList()
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    /** View pixels per PDF point. */
+    val scale: Float get() = if (pageWidthPoints > 0f) width / pageWidthPoints else 1f
+
+    private val selectionPaint = Paint().apply { color = Color.argb(80, 33, 150, 243) }
     private val highlightPaint = Paint().apply { color = Color.argb(90, 255, 213, 0) }
     private val currentPaint = Paint().apply { color = Color.argb(130, 255, 120, 0) }
     private val scratch = RectF()
@@ -53,6 +64,7 @@ class PageView(context: Context) : AppCompatImageView(context) {
         detail = null
         highlights = emptyList()
         currentHighlights = emptyList()
+        selection = emptyList()
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -62,10 +74,11 @@ class PageView(context: Context) : AppCompatImageView(context) {
             detailPaint.colorFilter = colorFilter
             canvas.drawBitmap(it, null, detailRect, detailPaint)
         }
-        if (pageWidthPoints <= 0f || (highlights.isEmpty() && currentHighlights.isEmpty())) return
-        val scale = width / pageWidthPoints
+        if (pageWidthPoints <= 0f) return
+        val scale = scale
         for (rect in highlights) drawScaled(canvas, rect, scale, highlightPaint)
         for (rect in currentHighlights) drawScaled(canvas, rect, scale, currentPaint)
+        for (rect in selection) drawScaled(canvas, rect, scale, selectionPaint)
     }
 
     private fun drawScaled(canvas: Canvas, rect: RectF, scale: Float, paint: Paint) {

@@ -97,6 +97,11 @@
             android:paddingBottom="4dp"
             android:visibility="gone" />
 
+        <com.example.pdfreader.SelectionHandles
+            android:id="@+id/selectionHandles"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
         <com.example.pdfreader.FastScrollHandle
             android:id="@+id/fastScroll"
             android:layout_width="120dp"

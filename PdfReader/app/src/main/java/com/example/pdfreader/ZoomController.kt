@@ -37,7 +37,7 @@ class ZoomController(
 
     init {
         list.onZoomSettled = { onGestureZoomSettled() }
-        list.onViewportChanged = {
+        list.viewportChangedListeners += {
             detailJob?.cancel()
             forEachPageView { it.setDetail(null) }
         }
