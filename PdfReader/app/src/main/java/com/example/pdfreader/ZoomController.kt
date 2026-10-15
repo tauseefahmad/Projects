@@ -3,7 +3,6 @@ package com.example.pdfreader
 import android.graphics.RectF
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ImageView
 import android.widget.TextView
 import androidx.core.view.isVisible
 import com.example.pdfreader.core.ZoomMath
@@ -38,7 +37,10 @@ class ZoomController(
 
     init {
         list.onZoomSettled = { onGestureZoomSettled() }
-        list.onViewportChanged = { detailJob?.cancel() }
+        list.onViewportChanged = {
+            detailJob?.cancel()
+            forEachPageView { it.setDetail(null) }
+        }
         list.onViewportSettled = { scheduleDetail() }
     }
 
@@ -153,14 +155,23 @@ class ZoomController(
     /** Re-renders the sharp detail, e.g. after dark pages was toggled. */
     fun refreshDetail() = scheduleDetail()
 
+    private fun forEachPageView(action: (PageView) -> Unit) {
+        for (i in 0 until list.childCount) {
+            val row = list.getChildAt(i) as? ViewGroup ?: continue
+            for (j in 0 until row.childCount) (row.getChildAt(j) as? PageView)?.let(action)
+        }
+    }
+
     private fun scheduleDetail() {
         detailJob?.cancel()
-        list.detailPaint.colorFilter = if (adapter?.darkPages == true) PageFilters.INVERT else null
-        if (list.zoom < DETAIL_MIN_ZOOM) return
+        if (list.zoom < DETAIL_MIN_ZOOM) {
+            forEachPageView { it.setDetail(null) }
+            return
+        }
         detailJob = scope.launch {
             delay(DETAIL_DELAY_MS)
             try {
-                list.detailTiles = renderDetail()
+                renderDetail()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -169,18 +180,18 @@ class ZoomController(
         }
     }
 
-    private suspend fun renderDetail(): List<DetailTile> {
-        val document = document ?: return emptyList()
+    /** Renders the visible part of each visible page at screen resolution onto its PageView. */
+    private suspend fun renderDetail() {
+        val document = document ?: return
         val zoom = list.zoom
         val visible = list.visibleContentRect()
         val maxPixels = list.width.toLong() * list.height * 2
-        val tiles = mutableListOf<DetailTile>()
         for (i in 0 until list.childCount) {
             val row = list.getChildAt(i) as? ViewGroup ?: continue
             for (j in 0 until row.childCount) {
-                val image = row.getChildAt(j) as? ImageView ?: continue
-                val page = image.tag as? Int ?: continue
-                if (image.visibility != View.VISIBLE || image.width == 0) continue
+                val image = row.getChildAt(j) as? PageView ?: continue
+                val page = image.page
+                if (page < 0 || image.visibility != View.VISIBLE || image.width == 0) continue
                 val pageRect = RectF(
                     (row.left + image.left).toFloat(), (row.top + image.top).toFloat(),
                     (row.left + image.right).toFloat(), (row.top + image.bottom).toFloat(),
@@ -196,10 +207,12 @@ class ZoomController(
                     offsetX = (region.left - pageRect.left) * zoom,
                     offsetY = (region.top - pageRect.top) * zoom,
                 )
-                tiles += DetailTile(page, region, bitmap)
+                if (image.page == page) {
+                    // Store the region relative to the page view itself.
+                    image.setDetail(bitmap, RectF(region).apply { offset(-pageRect.left, -pageRect.top) })
+                }
             }
         }
-        return tiles
     }
 
     private companion object {

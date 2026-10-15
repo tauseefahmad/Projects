@@ -28,6 +28,28 @@ object TestPdfs {
         return FileProvider.getUriForFile(context, "${context.packageName}.files", file)
     }
 
+    /** A PDF with real (extractable) text: one entry of [pages] per page, one line each. */
+    fun createWithText(context: Context, name: String, pages: List<String>): Uri {
+        com.tom_roush.pdfbox.android.PDFBoxResourceLoader.init(context)
+        val dir = File(context.cacheDir, "shared").apply { mkdirs() }
+        val file = File(dir, name)
+        com.tom_roush.pdfbox.pdmodel.PDDocument().use { document ->
+            for (line in pages) {
+                val page = com.tom_roush.pdfbox.pdmodel.PDPage(com.tom_roush.pdfbox.pdmodel.common.PDRectangle.A4)
+                document.addPage(page)
+                com.tom_roush.pdfbox.pdmodel.PDPageContentStream(document, page).use { stream ->
+                    stream.beginText()
+                    stream.setFont(com.tom_roush.pdfbox.pdmodel.font.PDType1Font.HELVETICA, 18f)
+                    stream.newLineAtOffset(72f, 700f)
+                    stream.showText(line)
+                    stream.endText()
+                }
+            }
+            document.save(file)
+        }
+        return FileProvider.getUriForFile(context, "${context.packageName}.files", file)
+    }
+
     /** An outline entry for [createWithOutline]: [page] is 0-based. */
     class Entry(val title: String, val page: Int, val children: List<Entry> = emptyList())
 

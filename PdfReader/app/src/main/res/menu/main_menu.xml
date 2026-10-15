@@ -7,6 +7,11 @@
         android:title="@string/open_pdf"
         app:showAsAction="ifRoom" />
     <item
+        android:id="@+id/action_search"
+        android:icon="@drawable/ic_search"
+        android:title="@string/search"
+        app:showAsAction="ifRoom" />
+    <item
         android:id="@+id/action_bookmark"
         android:icon="@drawable/ic_bookmark_border"
         android:title="@string/add_bookmark"

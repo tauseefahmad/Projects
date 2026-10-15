@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
+import android.graphics.RectF
 import android.util.LruCache
 import android.view.Gravity
 import android.view.View
@@ -70,9 +71,16 @@ class PageAdapter(
         this.recyclerView = null
     }
 
-    class ItemHolder(val row: LinearLayout, val images: List<ImageView>) : RecyclerView.ViewHolder(row) {
+    class ItemHolder(val row: LinearLayout, val images: List<PageView>) : RecyclerView.ViewHolder(row) {
         val jobs = arrayOfNulls<Job>(images.size)
+        val highlightJobs = arrayOfNulls<Job>(images.size)
     }
+
+    /** Supplies search highlights for a page: (all matches, current match), in PDF points. */
+    var highlightProvider: (suspend (page: Int) -> Pair<List<RectF>, List<RectF>>)? = null
+
+    /** Re-fetches highlights for the visible pages, e.g. after a new search. */
+    fun refreshHighlights() = notifyItemRangeChanged(0, itemCount, PAYLOAD_HIGHLIGHTS)
 
     override fun getItemCount() = spreads.size
 
@@ -91,7 +99,7 @@ class PageAdapter(
             setPadding(h, v, h, v)
         }
         val images = List(2) { index ->
-            ImageView(parent.context).apply {
+            PageView(parent.context).apply {
                 setBackgroundColor(Color.WHITE)
                 elevation = 2 * density
                 scaleType = ImageView.ScaleType.FIT_XY
@@ -105,12 +113,18 @@ class PageAdapter(
     }
 
     override fun onBindViewHolder(holder: ItemHolder, position: Int, payloads: MutableList<Any>) {
-        if (payloads.isNotEmpty() && payloads.all { it == PAYLOAD_FILTER }) {
-            holder.images.forEach(::applyFilter)
+        if (payloads.isNotEmpty() && payloads.all { it == PAYLOAD_FILTER || it == PAYLOAD_HIGHLIGHTS }) {
+            if (PAYLOAD_FILTER in payloads) holder.images.forEach(::applyFilter)
+            if (PAYLOAD_HIGHLIGHTS in payloads) {
+                holder.images.forEachIndexed { slot, image -> if (image.page >= 0) bindHighlights(holder, slot, image.page) }
+            }
         } else {
             onBindViewHolder(holder, position)
         }
     }
+
+    /** Space above the pages within an item, in pixels. */
+    fun rowPaddingTop(): Int = recyclerView?.let { (ROW_PADDING_V_DP * it.resources.displayMetrics.density).toInt() } ?: 0
 
     /** Width available to an item's pages, in pixels (0 before the list is laid out). */
     fun availableWidth(): Int {
@@ -147,10 +161,14 @@ class PageAdapter(
 
         holder.images.forEachIndexed { slot, image ->
             holder.jobs[slot]?.cancel()
+            holder.highlightJobs[slot]?.cancel()
+            image.setDetail(null)
             if (slot >= pages.size) {
                 image.visibility = View.GONE
                 image.setImageDrawable(null)
                 image.tag = null
+                image.page = -1
+                image.clearOverlays()
                 return@forEachIndexed
             }
             val page = pages[slot]
@@ -161,8 +179,12 @@ class PageAdapter(
                 height = box.height
             }
             image.contentDescription = "Page ${page + 1}"
+            if (image.page != page) image.clearOverlays()
+            image.page = page
+            image.pageWidthPoints = document.pageSizes[page].width.toFloat()
             applyFilter(image)
             bindPage(holder, slot, page, box.width)
+            bindHighlights(holder, slot, page)
         }
     }
 
@@ -193,6 +215,30 @@ class PageAdapter(
         }
     }
 
+    private fun bindHighlights(holder: ItemHolder, slot: Int, page: Int) {
+        val image = holder.images[slot]
+        holder.highlightJobs[slot]?.cancel()
+        val provider = highlightProvider
+        if (provider == null) {
+            image.highlights = emptyList()
+            image.currentHighlights = emptyList()
+            return
+        }
+        holder.highlightJobs[slot] = scope.launch {
+            val (all, current) = try {
+                provider(page)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                emptyList<RectF>() to emptyList()
+            }
+            if (image.page == page) {
+                image.highlights = all
+                image.currentHighlights = current
+            }
+        }
+    }
+
     /** The first bind can happen before the list has a size; retry after layout. */
     private fun bindLater(holder: ItemHolder, position: Int) {
         holder.itemView.post {
@@ -202,19 +248,23 @@ class PageAdapter(
 
     override fun onViewRecycled(holder: ItemHolder) {
         holder.jobs.forEach { it?.cancel() }
+        holder.highlightJobs.forEach { it?.cancel() }
         holder.images.forEach {
             it.setImageDrawable(null)
             it.tag = null
+            it.page = -1
+            it.clearOverlays()
         }
     }
 
-    private fun applyFilter(image: ImageView) {
+    private fun applyFilter(image: PageView) {
         image.colorFilter = if (darkPages) PageFilters.INVERT else null
     }
 
     private companion object {
         const val PAYLOAD_RERENDER = "rerender"
         const val PAYLOAD_FILTER = "filter"
+        const val PAYLOAD_HIGHLIGHTS = "highlights"
         const val MAX_RENDER_WIDTH = 2400
         const val GAP_DP = 6
         const val ROW_PADDING_H_DP = 8

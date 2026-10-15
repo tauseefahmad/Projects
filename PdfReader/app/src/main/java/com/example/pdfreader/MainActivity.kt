@@ -43,6 +43,15 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.launch
 import android.view.Menu
+import android.graphics.RectF
+import android.view.inputmethod.EditorInfo
+import androidx.appcompat.widget.PopupMenu
+import androidx.core.view.WindowCompat
+import androidx.core.widget.doAfterTextChanged
+import com.example.pdfreader.core.SearchMatch
+import com.example.pdfreader.core.SearchOptions
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import com.example.pdfreader.core.ZoomMath
 
 class MainActivity : AppCompatActivity() {
@@ -73,6 +82,25 @@ class MainActivity : AppCompatActivity() {
     private val outlineAdapter = OutlineAdapter { node -> node.page?.let { openFromPanel(it) } }
     private lateinit var bookmarkAdapter: BookmarkAdapter
     private var outlineLoaded = false
+    private lateinit var searchBar: View
+    private lateinit var searchInput: EditText
+    private lateinit var searchCount: TextView
+    private lateinit var searchResultsList: RecyclerView
+    private var searchMatchCase = false
+    private var searchWholeWord = false
+    private var searchDebounce: Job? = null
+    private var suppressSearchInput = false
+    private val searchResultAdapter = SearchResultAdapter(
+        textFor = { page -> shownReady?.structure?.cachedPageText(page) },
+        onClick = { index ->
+            search.select(index)
+            drawer.closeDrawer(GravityCompat.START)
+        },
+    )
+    private val search = SearchController(lifecycleScope, object : SearchController.Listener {
+        override fun onSearchUpdated() = onSearchChanged()
+        override fun onCurrentMatchChanged(match: SearchMatch) = showMatch(match)
+    })
     private var shownReady: ReaderState.Ready? = null
 
     private var adapter: PageAdapter? = null
@@ -118,6 +146,7 @@ class MainActivity : AppCompatActivity() {
         thumbnails = findViewById(R.id.thumbnails)
         thumbnails.layoutManager = GridLayoutManager(this, 2)
         setUpSidePanel()
+        setUpSearch()
         zoom = ZoomController(pages, findViewById(R.id.zoomLabel), lifecycleScope, ::currentItem) { scrollToItem(it) }
 
         val root = findViewById<View>(R.id.root)
@@ -174,6 +203,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        // While typing (search box, dialogs) keys belong to the text field; Esc closes search.
+        if (currentFocus is EditText) {
+            if (event.keyCode == KeyEvent.KEYCODE_ESCAPE && searchBar.isVisible) {
+                if (event.action == KeyEvent.ACTION_UP) closeSearch()
+                return true
+            }
+            return super.dispatchKeyEvent(event)
+        }
         val spreads = adapter?.spreads
         if (spreads != null && shownDocument != null) {
             val action = KeyNavigation.actionFor(event.keyCode, event.isCtrlPressed, event.isShiftPressed, settings.volumeKeysTurnPages)
@@ -190,6 +227,7 @@ class MainActivity : AppCompatActivity() {
                         NavAction.ZOOM_IN -> zoom.step(1)
                         NavAction.ZOOM_OUT -> zoom.step(-1)
                         NavAction.ZOOM_FIT -> zoom.fitWidth()
+                        NavAction.SEARCH -> if (event.repeatCount == 0) openSearch()
                     }
                 }
                 return true
@@ -227,6 +265,10 @@ class MainActivity : AppCompatActivity() {
         tabs.addTab(tabs.newTab().setText(R.string.tab_pages))
         tabs.addTab(tabs.newTab().setText(R.string.tab_outline))
         tabs.addTab(tabs.newTab().setText(R.string.tab_bookmarks))
+        tabs.addTab(tabs.newTab().setText(R.string.tab_search))
+        searchResultsList = findViewById(R.id.searchResults)
+        searchResultsList.layoutManager = LinearLayoutManager(this)
+        searchResultsList.adapter = searchResultAdapter
         tabs.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab) = showSideTab(tab.position)
             override fun onTabUnselected(tab: TabLayout.Tab) = Unit
@@ -253,11 +295,15 @@ class MainActivity : AppCompatActivity() {
         thumbnails.isVisible = position == TAB_PAGES
         outlineList.isVisible = position == TAB_OUTLINE && !outlineAdapter.isEmpty
         bookmarkList.isVisible = position == TAB_BOOKMARKS && bookmarkAdapter.itemCount > 0
+        searchResultsList.isVisible = position == TAB_SEARCH && searchResultAdapter.itemCount > 0
         sideProgress.isVisible = false
         sideEmpty.isVisible = false
         when (position) {
             TAB_OUTLINE -> if (outlineLoaded) showOutlineState() else loadOutline()
             TAB_BOOKMARKS -> if (bookmarkAdapter.itemCount == 0) showSideEmpty(R.string.no_bookmarks)
+            TAB_SEARCH -> if (searchResultAdapter.itemCount == 0) {
+                showSideEmpty(if (search.query.isEmpty()) R.string.search_results_empty else R.string.no_results)
+            }
         }
     }
 
@@ -364,6 +410,7 @@ class MainActivity : AppCompatActivity() {
                 R.id.action_open -> launchPicker()
                 R.id.action_go_to_page -> showGoToPageDialog()
                 R.id.action_bookmark -> toggleBookmark()
+                R.id.action_search -> openSearch()
                 R.id.zoom_fit_width -> {
                     settings.setFitMode(settings.viewMode, FitMode.FIT_WIDTH)
                     zoom.fitWidth()
@@ -436,6 +483,7 @@ class MainActivity : AppCompatActivity() {
         toolbar.menu.findItem(R.id.action_go_to_page).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_zoom).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_bookmark).isVisible = ready != null
+        toolbar.menu.findItem(R.id.action_search).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_close).isVisible = ready != null
         toolbar.title = ready?.name ?: getString(R.string.app_name)
         if (ready != null) {
@@ -456,6 +504,9 @@ class MainActivity : AppCompatActivity() {
         }
         if (ready !== shownReady) {
             shownReady = ready
+            closeSearch()
+            search.structure = ready?.structure
+            search.pageCount = ready?.document?.pageCount ?: 0
             outlineLoaded = false
             outlineAdapter.submit(emptyList())
             bookmarkAdapter.bookmarks = ready?.let { viewModel.bookmarks.load(it.uri) } ?: emptyList()
@@ -503,7 +554,10 @@ class MainActivity : AppCompatActivity() {
         pages.snapHelper = if (single) snapHelper else null
 
         val spreads = Spreads(document.pageCount, settings.spreadMode)
-        adapter = PageAdapter(document, lifecycleScope, spreads, viewMode).also { it.darkPages = settings.darkPages }
+        adapter = PageAdapter(document, lifecycleScope, spreads, viewMode).also {
+            it.darkPages = settings.darkPages
+            it.highlightProvider = ::highlightsFor
+        }
         pages.adapter = adapter
         zoom.document = document
         zoom.adapter = adapter
@@ -550,12 +604,12 @@ class MainActivity : AppCompatActivity() {
         scrollToItem(spreads.itemForPage(page))
     }
 
-    private fun scrollToItem(item: Int, smooth: Boolean = false) {
+    private fun scrollToItem(item: Int, smooth: Boolean = false, offsetPx: Int = 0) {
         explicitItem = item
         if (smooth) {
             pages.smoothScrollToPosition(item)
         } else {
-            (pages.layoutManager as? LinearLayoutManager)?.scrollToPositionWithOffset(item, 0)
+            (pages.layoutManager as? LinearLayoutManager)?.scrollToPositionWithOffset(item, offsetPx)
         }
         // onScrolled fires after the next layout; also refresh once laid out in case nothing moved.
         pages.post { updatePageLabel() }
@@ -581,6 +635,127 @@ class MainActivity : AppCompatActivity() {
         thumbnailAdapter?.currentPage = range.first
         if (outlineLoaded) outlineAdapter.showCurrentPage(range.first)
         updateBookmarkButton()
+    }
+
+    // --- Search ----------------------------------------------------------------------------
+
+    private fun setUpSearch() {
+        searchBar = findViewById(R.id.searchBar)
+        searchInput = findViewById(R.id.searchInput)
+        searchCount = findViewById(R.id.searchCount)
+        findViewById<View>(R.id.searchPrev).setOnClickListener { search.previous() }
+        findViewById<View>(R.id.searchNext).setOnClickListener { search.next() }
+        findViewById<View>(R.id.searchClose).setOnClickListener { closeSearch() }
+        findViewById<View>(R.id.searchOptions).setOnClickListener(::showSearchOptions)
+        searchInput.setOnEditorActionListener { _, actionId, event ->
+            val enter = actionId == EditorInfo.IME_ACTION_SEARCH ||
+                (event?.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN)
+            if (!enter) return@setOnEditorActionListener false
+            searchDebounce?.cancel()
+            // Enter on the same query moves to the next match, like desktop viewers.
+            if (searchInput.text.toString().trim() == search.query && search.matches.isNotEmpty()) search.next() else runSearch()
+            true
+        }
+        searchInput.doAfterTextChanged {
+            if (suppressSearchInput) return@doAfterTextChanged
+            searchDebounce?.cancel()
+            searchDebounce = lifecycleScope.launch {
+                delay(SEARCH_DELAY_MS)
+                runSearch()
+            }
+        }
+    }
+
+    private fun openSearch() {
+        if (shownReady == null) return
+        searchBar.isVisible = true
+        searchInput.requestFocus()
+        searchInput.selectAll()
+        WindowCompat.getInsetsController(window, searchInput).show(WindowInsetsCompat.Type.ime())
+    }
+
+    private fun closeSearch() {
+        searchDebounce?.cancel()
+        if (::searchBar.isInitialized && searchBar.isVisible) {
+            WindowCompat.getInsetsController(window, searchInput).hide(WindowInsetsCompat.Type.ime())
+            searchBar.isVisible = false
+            pages.requestFocus()
+        }
+        suppressSearchInput = true
+        searchInput.setText("")
+        suppressSearchInput = false
+        if (search.query.isNotEmpty() || search.matches.isNotEmpty()) search.clear()
+    }
+
+    private fun runSearch() {
+        search.search(searchInput.text.toString(), SearchOptions(searchMatchCase, searchWholeWord), currentPage())
+    }
+
+    private fun showSearchOptions(anchor: View) {
+        PopupMenu(this, anchor).apply {
+            menuInflater.inflate(R.menu.search_options, menu)
+            menu.findItem(R.id.option_match_case).isChecked = searchMatchCase
+            menu.findItem(R.id.option_whole_word).isChecked = searchWholeWord
+            setOnMenuItemClickListener { item ->
+                when (item.itemId) {
+                    R.id.option_match_case -> searchMatchCase = !searchMatchCase
+                    R.id.option_whole_word -> searchWholeWord = !searchWholeWord
+                }
+                runSearch()
+                true
+            }
+        }.show()
+    }
+
+    private fun onSearchChanged() {
+        searchCount.text = when {
+            search.query.isEmpty() -> ""
+            search.matches.isEmpty() -> getString(if (search.searching) R.string.searching else R.string.no_results)
+            search.searching -> getString(R.string.search_count_progress, search.currentIndex + 1, search.matches.size)
+            else -> getString(R.string.search_count, search.currentIndex + 1, search.matches.size)
+        }
+        searchResultAdapter.submit(search.matches, search.currentIndex)
+        if (sideTabs.selectedTabPosition == TAB_SEARCH) showSideTab(TAB_SEARCH)
+        adapter?.refreshHighlights()
+    }
+
+    /** Scrolls so the match sits about a third of the way down the screen. */
+    private fun showMatch(match: SearchMatch) {
+        val adapter = adapter ?: return
+        val ready = shownReady ?: return
+        val item = adapter.spreads.itemForPage(match.page)
+        if (settings.viewMode == ViewMode.SINGLE_PAGE) {
+            scrollToItem(item)
+            return
+        }
+        lifecycleScope.launch {
+            val boxes = try {
+                ready.structure.pageTextWithPositions(match.page).boxesFor(match.start, match.end)
+            } catch (e: Exception) {
+                emptyList()
+            }
+            if (this@MainActivity.adapter !== adapter) return@launch
+            val top = boxes.firstOrNull()?.top
+            if (top == null) {
+                scrollToItem(item)
+                return@launch
+            }
+            val slot = adapter.spreads.items[item].indexOf(match.page).coerceAtLeast(0)
+            val pageHeightPx = adapter.baseBoxes(item)[slot].height * adapter.layoutScale
+            val pageHeightPt = ready.document.pageSizes[match.page].height
+            val y = adapter.rowPaddingTop() + top / pageHeightPt * pageHeightPx
+            scrollToItem(item, offsetPx = (pages.height / 3 - y).toInt())
+        }
+    }
+
+    private suspend fun highlightsFor(page: Int): Pair<List<RectF>, List<RectF>> {
+        val onPage = search.matchesOn(page)
+        val structure = shownReady?.structure
+        if (onPage.isEmpty() || structure == null) return emptyList<RectF>() to emptyList()
+        val text = structure.pageTextWithPositions(page)
+        val current = search.current?.takeIf { it.page == page }
+        val others = onPage.filter { it != current }.flatMap { text.boxesFor(it.start, it.end) }
+        return others to (current?.let { text.boxesFor(it.start, it.end) } ?: emptyList())
     }
 
     private fun showGoToPageDialog() {
@@ -625,6 +800,8 @@ class MainActivity : AppCompatActivity() {
         const val TAB_PAGES = 0
         const val TAB_OUTLINE = 1
         const val TAB_BOOKMARKS = 2
+        const val TAB_SEARCH = 3
+        const val SEARCH_DELAY_MS = 350L
     }
 
     private fun displayName(uri: Uri): String {

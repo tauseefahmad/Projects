@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/option_match_case"
+        android:checkable="true"
+        android:title="@string/match_case" />
+    <item
+        android:id="@+id/option_whole_word"
+        android:checkable="true"
+        android:title="@string/whole_word" />
+</menu>

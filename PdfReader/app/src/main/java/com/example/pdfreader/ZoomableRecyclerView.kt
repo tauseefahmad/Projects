@@ -4,9 +4,7 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
-import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Paint
 import android.graphics.RectF
 import android.util.AttributeSet
 import android.view.GestureDetector
@@ -50,16 +48,6 @@ class ZoomableRecyclerView @JvmOverloads constructor(
 
     /** Called when the viewport comes to rest after a gesture, fling or scroll. */
     var onViewportSettled: (() -> Unit)? = null
-
-    /** High-resolution renders of the visible page areas, drawn over the (blurrier) page bitmaps. */
-    var detailTiles: List<DetailTile> = emptyList()
-        set(value) {
-            field = value
-            invalidate()
-        }
-
-    /** Paint for [detailTiles]; its color filter follows the pages' (e.g. dark pages). */
-    val detailPaint = Paint(Paint.FILTER_BITMAP_FLAG)
 
     /** In paged mode, used to settle on a page after a zoomed drag. */
     var snapHelper: SnapHelper? = null
@@ -135,7 +123,6 @@ class ZoomableRecyclerView @JvmOverloads constructor(
     }
 
     private fun viewportChanged() {
-        if (detailTiles.isNotEmpty()) detailTiles = emptyList()
         invalidate()
         onViewportChanged?.invoke()
     }
@@ -295,7 +282,6 @@ class ZoomableRecyclerView @JvmOverloads constructor(
         canvas.translate(transX, transY)
         canvas.scale(zoom, zoom)
         super.dispatchDraw(canvas)
-        for (tile in detailTiles) canvas.drawBitmap(tile.bitmap, null, tile.contentRect, detailPaint)
         canvas.restore()
     }
 
@@ -312,5 +298,3 @@ class ZoomableRecyclerView @JvmOverloads constructor(
     }
 }
 
-/** A sharp render of [contentRect] (in un-zoomed list coordinates) of one page. */
-class DetailTile(val page: Int, val contentRect: RectF, val bitmap: Bitmap)

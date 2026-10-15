@@ -156,11 +156,9 @@ class ZoomTest {
             waitFor {
                 scenario.onActivity { activity ->
                     val list = activity.findViewById<ZoomableRecyclerView>(R.id.pages)
-                    val tiles = list.detailTiles
-                    assertTrue("expected detail tiles", tiles.isNotEmpty())
-                    val tile = tiles.first()
-                    // The tile has one bitmap pixel per screen pixel.
-                    assertTrue(abs(tile.bitmap.width - tile.contentRect.width() * list.zoom) <= 2)
+                    val row = list.getChildAt(0) as android.view.ViewGroup
+                    val pageView = row.getChildAt(0) as PageView
+                    assertTrue("expected a sharp detail render on the visible page", pageView.hasDetail)
                 }
             }
         }

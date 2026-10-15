@@ -2,6 +2,7 @@ package com.example.pdfreader
 
 import android.content.Context
 import android.net.Uri
+import android.util.LruCache
 import com.example.pdfreader.core.OutlineNode
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.io.MemoryUsageSetting
@@ -27,6 +28,10 @@ class PdfStructure(private val context: Context, private val uri: Uri) : Closeab
     private var closed = false
     private var outline: List<OutlineNode>? = null
 
+    // Text of every page searched so far (small), and full text+positions for a few recent pages.
+    private val textCache = HashMap<Int, String>()
+    private val positionCache = LruCache<Int, PageText>(POSITION_CACHE_PAGES)
+
     private suspend fun <T> withDocument(block: (PDDocument) -> T): T = withContext(Dispatchers.IO) {
         mutex.withLock {
             check(!closed) { "Document is closed" }
@@ -49,6 +54,31 @@ class PdfStructure(private val context: Context, private val uri: Uri) : Closeab
             val root = doc.documentCatalog.documentOutline
             if (root == null) emptyList() else readChildren(doc, root, depth = 0)
         }.also { outline = it }
+    }
+
+    /** The page's plain text, for search. Cached for the lifetime of the document. */
+    suspend fun pageText(page: Int): String {
+        synchronized(textCache) { textCache[page] }?.let { return it }
+        return pageTextWithPositions(page).text
+    }
+
+    /** The page's text if it has already been extracted (e.g. by a search), without waiting. */
+    fun cachedPageText(page: Int): String? = synchronized(textCache) { textCache[page] }
+
+    /** The page's text with character positions, for highlights and selection. */
+    suspend fun pageTextWithPositions(page: Int): PageText {
+        positionCache.get(page)?.let { return it }
+        return withDocument { doc ->
+            if (page !in 0 until doc.numberOfPages) return@withDocument PageText.EMPTY
+            val stripper = PositionStripper()
+            stripper.startPage = page + 1
+            stripper.endPage = page + 1
+            stripper.getText(doc)
+            stripper.result()
+        }.also {
+            positionCache.put(page, it)
+            synchronized(textCache) { textCache[page] = it.text }
+        }
     }
 
     private fun readChildren(doc: PDDocument, parent: PDOutlineNode, depth: Int): List<OutlineNode> {
@@ -84,5 +114,6 @@ class PdfStructure(private val context: Context, private val uri: Uri) : Closeab
         // Guards against malformed outlines with cycles or absurd sizes.
         const val MAX_OUTLINE_DEPTH = 16
         const val MAX_OUTLINE_ITEMS = 5000
+        const val POSITION_CACHE_PAGES = 12
     }
 }

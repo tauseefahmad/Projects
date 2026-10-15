@@ -32,6 +32,8 @@ class KeyNavigationTest {
         assertEquals(NavAction.LAST, action(KeyEvent.KEYCODE_MOVE_END))
         assertEquals(NavAction.GO_TO, action(KeyEvent.KEYCODE_G, ctrl = true))
         assertNull(action(KeyEvent.KEYCODE_G))
+        assertEquals(NavAction.SEARCH, action(KeyEvent.KEYCODE_F, ctrl = true))
+        assertNull(action(KeyEvent.KEYCODE_F))
     }
 
     @Test
