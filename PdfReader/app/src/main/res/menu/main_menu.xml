@@ -7,6 +7,10 @@
         android:title="@string/open_pdf"
         app:showAsAction="ifRoom" />
     <item
+        android:id="@+id/action_open_url"
+        android:title="@string/open_url"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/action_search"
         android:icon="@drawable/ic_search"
         android:title="@string/search"

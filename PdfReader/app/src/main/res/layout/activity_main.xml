@@ -173,6 +173,14 @@
                     android:text="@string/open_pdf"
                     app:icon="@drawable/ic_folder_open" />
 
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/openUrlButton"
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/open_url" />
+
                 <LinearLayout
                     android:id="@+id/recentSection"
                     android:layout_width="match_parent"

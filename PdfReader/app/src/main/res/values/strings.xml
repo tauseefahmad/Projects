@@ -44,6 +44,17 @@
     <string name="theme_dark">Dark</string>
     <string name="theme_sepia">Sepia</string>
     <string name="print">Print</string>
+    <string name="open">Open</string>
+    <string name="open_url">Open from URL</string>
+    <string name="url_hint">https://example.com/file.pdf</string>
+    <string name="url_invalid">Enter a web address starting with https://</string>
+    <string name="download_failed">The download failed. Check the address and your connection.</string>
+    <string name="download_not_pdf">That address doesn\'t lead to a PDF file.</string>
+    <string name="download_too_large">The file is larger than 200 MB.</string>
+    <string name="password_title">Password required</string>
+    <string name="password_message">This PDF is protected. Enter its password to open it.</string>
+    <string name="password_wrong">Wrong password. Try again.</string>
+    <string name="password_hint">Password</string>
     <string name="properties">Document properties</string>
     <string name="close">Close</string>
     <string name="yes">Yes</string>

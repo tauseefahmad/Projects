@@ -95,6 +95,29 @@ object TestPdfs {
         return FileProvider.getUriForFile(context, "${context.packageName}.files", file)
     }
 
+    /** An encrypted PDF. With an empty [userPassword] it opens without asking (owner-only protection). */
+    fun createEncrypted(context: Context, name: String, pageCount: Int, userPassword: String, ownerPassword: String = "owner-secret"): Uri {
+        com.tom_roush.pdfbox.android.PDFBoxResourceLoader.init(context)
+        val dir = File(context.cacheDir, "shared").apply { mkdirs() }
+        val file = File(dir, name)
+        com.tom_roush.pdfbox.pdmodel.PDDocument().use { document ->
+            repeat(pageCount) { document.addPage(com.tom_roush.pdfbox.pdmodel.PDPage(com.tom_roush.pdfbox.pdmodel.common.PDRectangle.A4)) }
+            val policy = com.tom_roush.pdfbox.pdmodel.encryption.StandardProtectionPolicy(
+                ownerPassword, userPassword, com.tom_roush.pdfbox.pdmodel.encryption.AccessPermission(),
+            )
+            policy.encryptionKeyLength = 128
+            document.protect(policy)
+            document.save(file)
+        }
+        return FileProvider.getUriForFile(context, "${context.packageName}.files", file)
+    }
+
+    /** Bytes of a plain generated PDF, e.g. to serve over HTTP in tests. */
+    fun bytes(context: Context, pageCount: Int): ByteArray {
+        create(context, "bytes-$pageCount.pdf", pageCount)
+        return File(context.cacheDir, "shared/bytes-$pageCount.pdf").readBytes()
+    }
+
     /** An outline entry for [createWithOutline]: [page] is 0-based. */
     class Entry(val title: String, val page: Int, val children: List<Entry> = emptyList())
 

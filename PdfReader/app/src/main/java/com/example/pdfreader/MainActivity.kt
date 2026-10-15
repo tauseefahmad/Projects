@@ -49,6 +49,8 @@ import android.view.inputmethod.EditorInfo
 import androidx.appcompat.widget.PopupMenu
 import androidx.core.view.WindowCompat
 import androidx.core.widget.doAfterTextChanged
+import androidx.core.content.IntentCompat
+import com.example.pdfreader.core.Downloads
 import com.example.pdfreader.core.Formatting
 import com.example.pdfreader.core.Links
 import com.example.pdfreader.core.PageRotation
@@ -185,6 +187,7 @@ class MainActivity : AppCompatActivity() {
         setUpMenu()
 
         findViewById<View>(R.id.openButton).setOnClickListener { launchPicker() }
+        findViewById<View>(R.id.openUrlButton).setOnClickListener { showOpenUrlDialog() }
         findViewById<View>(R.id.clearRecent).setOnClickListener {
             viewModel.recentFiles.clear()
             showRecentFiles()
@@ -439,6 +442,7 @@ class MainActivity : AppCompatActivity() {
         toolbar.setOnMenuItemClickListener { item ->
             when (item.itemId) {
                 R.id.action_open -> launchPicker()
+                R.id.action_open_url -> showOpenUrlDialog()
                 R.id.action_go_to_page -> showGoToPageDialog()
                 R.id.action_bookmark -> toggleBookmark()
                 R.id.action_rotate -> rotateView()
@@ -529,7 +533,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleIntent(intent: Intent?) {
-        if (intent?.action == Intent.ACTION_VIEW) intent.data?.let(::openUri)
+        when (intent?.action) {
+            Intent.ACTION_VIEW -> intent.data?.let(::openUri)
+            // "Share" from another app (e.g. a messenger) with a PDF attached.
+            Intent.ACTION_SEND -> IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)?.let(::openUri)
+        }
     }
 
     private fun launchPicker() = openDocument.launch(arrayOf("application/pdf"))
@@ -537,11 +545,11 @@ class MainActivity : AppCompatActivity() {
     private fun openUri(uri: Uri) = viewModel.open(uri, displayName(uri))
 
     private fun render(state: ReaderState) {
-        progress.isVisible = state is ReaderState.Loading
+        progress.isVisible = state is ReaderState.Loading || state is ReaderState.Downloading
         val ready = state as? ReaderState.Ready
         pages.isVisible = ready != null
         navBar.isVisible = ready != null
-        emptyState.isVisible = state is ReaderState.Empty || state is ReaderState.Error
+        emptyState.isVisible = state is ReaderState.Empty || state is ReaderState.Error || state is ReaderState.NeedsPassword
         toolbar.menu.findItem(R.id.action_go_to_page).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_zoom).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_bookmark).isVisible = ready != null
@@ -583,9 +591,66 @@ class MainActivity : AppCompatActivity() {
         }
 
         if (state is ReaderState.Error) {
-            Toast.makeText(this, state.message, Toast.LENGTH_LONG).show()
+            MaterialAlertDialogBuilder(this)
+                .setMessage(state.message)
+                .setPositiveButton(android.R.string.ok, null)
+                .show()
             viewModel.errorShown()
         }
+        if (state is ReaderState.NeedsPassword && state !== passwordPromptFor) showPasswordDialog(state)
+    }
+
+    /** The password request a dialog is showing for, so it isn't shown twice. */
+    private var passwordPromptFor: ReaderState.NeedsPassword? = null
+
+    private fun showPasswordDialog(request: ReaderState.NeedsPassword) {
+        passwordPromptFor = request
+        val input = EditText(this).apply {
+            id = R.id.password_input
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            hint = getString(R.string.password_hint)
+        }
+        val container = FrameLayout(this).apply {
+            val pad = (20 * resources.displayMetrics.density).toInt()
+            setPadding(pad, pad / 2, pad, 0)
+            addView(input)
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.password_title)
+            .setMessage(if (request.wrongPassword) R.string.password_wrong else R.string.password_message)
+            .setView(container)
+            .setCancelable(false)
+            .setPositiveButton(R.string.open) { _, _ -> viewModel.open(request.uri, request.name, input.text.toString()) }
+            .setNegativeButton(R.string.cancel) { _, _ -> viewModel.close() }
+            .show()
+        input.requestFocus()
+    }
+
+    private fun showOpenUrlDialog() {
+        val input = EditText(this).apply {
+            id = R.id.url_input
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+            hint = getString(R.string.url_hint)
+            isSingleLine = true
+        }
+        val container = FrameLayout(this).apply {
+            val pad = (20 * resources.displayMetrics.density).toInt()
+            setPadding(pad, pad / 2, pad, 0)
+            addView(input)
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.open_url)
+            .setView(container)
+            .setPositiveButton(R.string.open) { _, _ ->
+                val url = Downloads.parseUrl(input.text.toString())
+                if (url == null) {
+                    Toast.makeText(this, R.string.url_invalid, Toast.LENGTH_LONG).show()
+                } else {
+                    viewModel.download(url)
+                }
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
     }
 
     private fun showDocument(document: PdfDocument?) {
