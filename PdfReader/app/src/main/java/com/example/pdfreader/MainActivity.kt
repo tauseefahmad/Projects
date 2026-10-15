@@ -65,6 +65,15 @@ class MainActivity : AppCompatActivity() {
     private lateinit var drawer: DrawerLayout
     private lateinit var thumbnails: RecyclerView
     private var thumbnailAdapter: ThumbnailAdapter? = null
+    private lateinit var outlineList: RecyclerView
+    private lateinit var bookmarkList: RecyclerView
+    private lateinit var sideProgress: View
+    private lateinit var sideEmpty: TextView
+    private lateinit var sideTabs: TabLayout
+    private val outlineAdapter = OutlineAdapter { node -> node.page?.let { openFromPanel(it) } }
+    private lateinit var bookmarkAdapter: BookmarkAdapter
+    private var outlineLoaded = false
+    private var shownReady: ReaderState.Ready? = null
 
     private var adapter: PageAdapter? = null
     private var shownDocument: PdfDocument? = null
@@ -199,8 +208,30 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setUpSidePanel() {
+        outlineList = findViewById(R.id.outline)
+        bookmarkList = findViewById(R.id.bookmarks)
+        sideProgress = findViewById(R.id.sideProgress)
+        sideEmpty = findViewById(R.id.sideEmpty)
+        outlineList.layoutManager = LinearLayoutManager(this)
+        outlineList.adapter = outlineAdapter
+        bookmarkAdapter = BookmarkAdapter(
+            onOpen = { openFromPanel(it.page) },
+            onRename = ::showRenameBookmarkDialog,
+            onDelete = { bookmark -> shownReady?.let { setBookmarks(viewModel.bookmarks.toggle(it.uri, bookmark.page, bookmark.title)) } },
+        )
+        bookmarkList.layoutManager = LinearLayoutManager(this)
+        bookmarkList.adapter = bookmarkAdapter
+
         val tabs = findViewById<TabLayout>(R.id.sideTabs)
+        sideTabs = tabs
         tabs.addTab(tabs.newTab().setText(R.string.tab_pages))
+        tabs.addTab(tabs.newTab().setText(R.string.tab_outline))
+        tabs.addTab(tabs.newTab().setText(R.string.tab_bookmarks))
+        tabs.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
+            override fun onTabSelected(tab: TabLayout.Tab) = showSideTab(tab.position)
+            override fun onTabUnselected(tab: TabLayout.Tab) = Unit
+            override fun onTabReselected(tab: TabLayout.Tab) = Unit
+        })
         toolbar.setNavigationOnClickListener {
             if (drawer.isDrawerOpen(GravityCompat.START)) drawer.closeDrawer(GravityCompat.START) else openSidePanel()
         }
@@ -216,6 +247,99 @@ class MainActivity : AppCompatActivity() {
                 override fun onDrawerClosed(drawerView: View) { callback.isEnabled = false }
             })
         })
+    }
+
+    private fun showSideTab(position: Int) {
+        thumbnails.isVisible = position == TAB_PAGES
+        outlineList.isVisible = position == TAB_OUTLINE && !outlineAdapter.isEmpty
+        bookmarkList.isVisible = position == TAB_BOOKMARKS && bookmarkAdapter.itemCount > 0
+        sideProgress.isVisible = false
+        sideEmpty.isVisible = false
+        when (position) {
+            TAB_OUTLINE -> if (outlineLoaded) showOutlineState() else loadOutline()
+            TAB_BOOKMARKS -> if (bookmarkAdapter.itemCount == 0) showSideEmpty(R.string.no_bookmarks)
+        }
+    }
+
+    private fun showSideEmpty(message: Int) {
+        sideEmpty.setText(message)
+        sideEmpty.isVisible = true
+    }
+
+    private fun loadOutline() {
+        val ready = shownReady ?: return
+        sideProgress.isVisible = true
+        lifecycleScope.launch {
+            val outline = try {
+                ready.structure.outline()
+            } catch (e: Exception) {
+                emptyList()
+            }
+            if (shownReady !== ready) return@launch
+            outlineLoaded = true
+            outlineAdapter.submit(outline)
+            outlineAdapter.showCurrentPage(currentPage())
+            if (sideTabs.selectedTabPosition == TAB_OUTLINE) showOutlineState()
+        }
+    }
+
+    private fun showOutlineState() {
+        sideProgress.isVisible = false
+        outlineList.isVisible = !outlineAdapter.isEmpty
+        if (outlineAdapter.isEmpty) {
+            showSideEmpty(R.string.no_outline)
+        } else {
+            val position = outlineAdapter.positionOfCurrentSection()
+            if (position >= 0) (outlineList.layoutManager as LinearLayoutManager).scrollToPositionWithOffset(position, outlineList.height / 3)
+        }
+    }
+
+    private fun openFromPanel(page: Int) {
+        goToPage(page)
+        drawer.closeDrawer(GravityCompat.START)
+    }
+
+    private fun setBookmarks(bookmarks: List<com.example.pdfreader.core.Bookmark>) {
+        bookmarkAdapter.bookmarks = bookmarks
+        updateBookmarkButton()
+        if (sideTabs.selectedTabPosition == TAB_BOOKMARKS) showSideTab(TAB_BOOKMARKS)
+    }
+
+    private fun toggleBookmark() {
+        val ready = shownReady ?: return
+        val page = currentPage()
+        val wasBookmarked = bookmarkAdapter.bookmarks.any { it.page == page }
+        setBookmarks(viewModel.bookmarks.toggle(ready.uri, page, getString(R.string.page_thumbnail, page + 1)))
+        if (!wasBookmarked) Toast.makeText(this, getString(R.string.bookmark_added, page + 1), Toast.LENGTH_SHORT).show()
+    }
+
+    private fun updateBookmarkButton() {
+        val item = toolbar.menu.findItem(R.id.action_bookmark) ?: return
+        val marked = shownReady != null && bookmarkAdapter.bookmarks.any { it.page == currentPage() }
+        item.setIcon(if (marked) R.drawable.ic_bookmark_filled else R.drawable.ic_bookmark_border)
+        item.setTitle(if (marked) R.string.remove_bookmark else R.string.add_bookmark)
+    }
+
+    private fun showRenameBookmarkDialog(bookmark: com.example.pdfreader.core.Bookmark) {
+        val ready = shownReady ?: return
+        val input = EditText(this).apply {
+            id = R.id.bookmark_title_input
+            setText(bookmark.title)
+            selectAll()
+        }
+        val container = FrameLayout(this).apply {
+            val pad = (20 * resources.displayMetrics.density).toInt()
+            setPadding(pad, pad / 2, pad, 0)
+            addView(input)
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.rename_bookmark)
+            .setView(container)
+            .setPositiveButton(R.string.save) { _, _ ->
+                setBookmarks(viewModel.bookmarks.rename(ready.uri, bookmark.page, input.text.toString().trim()))
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
     }
 
     private fun openSidePanel() {
@@ -239,6 +363,7 @@ class MainActivity : AppCompatActivity() {
             when (item.itemId) {
                 R.id.action_open -> launchPicker()
                 R.id.action_go_to_page -> showGoToPageDialog()
+                R.id.action_bookmark -> toggleBookmark()
                 R.id.zoom_fit_width -> {
                     settings.setFitMode(settings.viewMode, FitMode.FIT_WIDTH)
                     zoom.fitWidth()
@@ -310,6 +435,7 @@ class MainActivity : AppCompatActivity() {
         emptyState.isVisible = state is ReaderState.Empty || state is ReaderState.Error
         toolbar.menu.findItem(R.id.action_go_to_page).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_zoom).isVisible = ready != null
+        toolbar.menu.findItem(R.id.action_bookmark).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_close).isVisible = ready != null
         toolbar.title = ready?.name ?: getString(R.string.app_name)
         if (ready != null) {
@@ -327,6 +453,15 @@ class MainActivity : AppCompatActivity() {
             showRecentFiles()
         } else if (ready.document !== shownDocument) {
             showDocument(ready.document)
+        }
+        if (ready !== shownReady) {
+            shownReady = ready
+            outlineLoaded = false
+            outlineAdapter.submit(emptyList())
+            bookmarkAdapter.bookmarks = ready?.let { viewModel.bookmarks.load(it.uri) } ?: emptyList()
+            sideTabs.getTabAt(TAB_PAGES)?.select()
+            showSideTab(TAB_PAGES)
+            updateBookmarkButton()
         }
 
         if (state is ReaderState.Error) {
@@ -413,9 +548,6 @@ class MainActivity : AppCompatActivity() {
     private fun goToPage(page: Int) {
         val spreads = adapter?.spreads ?: return
         scrollToItem(spreads.itemForPage(page))
-        val newAdapter = adapter
-        // Fit modes need the list's size, so apply the default once it has been laid out.
-        pages.post { if (adapter === newAdapter) zoom.apply(settings.fitMode(viewMode), announce = false) }
     }
 
     private fun scrollToItem(item: Int, smooth: Boolean = false) {
@@ -447,6 +579,8 @@ class MainActivity : AppCompatActivity() {
         nextPage.alpha = if (nextPage.isEnabled) 1f else 0.38f
         fastScroll.fraction = Navigation.fractionForPage(range.first, document.pageCount)
         thumbnailAdapter?.currentPage = range.first
+        if (outlineLoaded) outlineAdapter.showCurrentPage(range.first)
+        updateBookmarkButton()
     }
 
     private fun showGoToPageDialog() {
@@ -488,6 +622,9 @@ class MainActivity : AppCompatActivity() {
 
     private companion object {
         const val ZOOM_PRESET_ID_BASE = 10_000
+        const val TAB_PAGES = 0
+        const val TAB_OUTLINE = 1
+        const val TAB_BOOKMARKS = 2
     }
 
     private fun displayName(uri: Uri): String {

@@ -1,4 +1,5 @@
 <resources>
     <color name="brand">#EF9A9A</color>
     <color name="reader_background">#121212</color>
+    <color name="panel_selected">#33EF9A9A</color>
 </resources>

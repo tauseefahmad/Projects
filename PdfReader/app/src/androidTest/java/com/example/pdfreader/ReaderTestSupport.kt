@@ -20,11 +20,14 @@ object ReaderTestSupport {
     fun resetAppState() {
         context.getSharedPreferences(ReaderSettings.PREFS_NAME, Context.MODE_PRIVATE).edit().clear().commit()
         context.getSharedPreferences("recent_files", Context.MODE_PRIVATE).edit().clear().commit()
+        context.getSharedPreferences(BookmarkStore.PREFS_NAME, Context.MODE_PRIVATE).edit().clear().commit()
     }
 
     /** Opens a generated PDF of [pageCount] pages as if another app sent it with "Open with". */
-    fun openPdf(pageCount: Int, name: String = "test-$pageCount.pdf"): ActivityScenario<MainActivity> {
-        val uri = TestPdfs.create(context, name, pageCount)
+    fun openPdf(pageCount: Int, name: String = "test-$pageCount.pdf"): ActivityScenario<MainActivity> =
+        openUri(TestPdfs.create(context, name, pageCount))
+
+    fun openUri(uri: android.net.Uri): ActivityScenario<MainActivity> {
         val intent = Intent(Intent.ACTION_VIEW, uri, context, MainActivity::class.java)
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         return ActivityScenario.launch(intent)

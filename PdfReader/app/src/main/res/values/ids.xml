@@ -1,3 +1,4 @@
 <resources>
     <item name="page_input" type="id" />
+    <item name="bookmark_title_input" type="id" />
 </resources>

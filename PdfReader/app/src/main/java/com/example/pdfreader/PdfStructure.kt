@@ -1,0 +1,88 @@
+package com.example.pdfreader
+
+import android.content.Context
+import android.net.Uri
+import com.example.pdfreader.core.OutlineNode
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
+import com.tom_roush.pdfbox.io.MemoryUsageSetting
+import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOutlineNode
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import java.io.Closeable
+import java.io.IOException
+
+/**
+ * The document's structure (outline, and later text, links and metadata) read with PdfBox.
+ * PdfRenderer only draws pages; this parses the file itself. It is loaded on first use, in the
+ * background, and is not thread-safe, so all access goes through [mutex].
+ */
+class PdfStructure(private val context: Context, private val uri: Uri) : Closeable {
+
+    private val mutex = Mutex()
+    private var document: PDDocument? = null
+    private var closed = false
+    private var outline: List<OutlineNode>? = null
+
+    private suspend fun <T> withDocument(block: (PDDocument) -> T): T = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            check(!closed) { "Document is closed" }
+            val doc = document ?: load().also { document = it }
+            block(doc)
+        }
+    }
+
+    private fun load(): PDDocument {
+        PDFBoxResourceLoader.init(context.applicationContext)
+        val input = context.contentResolver.openInputStream(uri) ?: throw IOException("Cannot read $uri")
+        // Buffer through a temp file instead of RAM so large documents don't run out of memory.
+        return input.use { PDDocument.load(it, MemoryUsageSetting.setupTempFileOnly()) }
+    }
+
+    /** The PDF's built-in table of contents, or an empty list if it has none. */
+    suspend fun outline(): List<OutlineNode> {
+        outline?.let { return it }
+        return withDocument { doc ->
+            val root = doc.documentCatalog.documentOutline
+            if (root == null) emptyList() else readChildren(doc, root, depth = 0)
+        }.also { outline = it }
+    }
+
+    private fun readChildren(doc: PDDocument, parent: PDOutlineNode, depth: Int): List<OutlineNode> {
+        if (depth > MAX_OUTLINE_DEPTH) return emptyList()
+        val nodes = mutableListOf<OutlineNode>()
+        for (item in parent.children()) {
+            if (nodes.size >= MAX_OUTLINE_ITEMS) break
+            val page = try {
+                item.findDestinationPage(doc)?.let { doc.pages.indexOf(it) }?.takeIf { it >= 0 }
+            } catch (e: IOException) {
+                null
+            }
+            val title = item.title?.trim().orEmpty().ifEmpty { "—" }
+            nodes += OutlineNode(title, page, readChildren(doc, item, depth + 1))
+        }
+        return nodes
+    }
+
+    override fun close() {
+        // Called from the main thread: close in the background once any running parse finishes.
+        Thread {
+            runBlocking {
+                mutex.withLock {
+                    closed = true
+                    runCatching { document?.close() }
+                    document = null
+                }
+            }
+        }.start()
+    }
+
+    private companion object {
+        // Guards against malformed outlines with cycles or absurd sizes.
+        const val MAX_OUTLINE_DEPTH = 16
+        const val MAX_OUTLINE_ITEMS = 5000
+    }
+}

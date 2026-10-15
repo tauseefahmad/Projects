@@ -11,7 +11,7 @@ import kotlinx.coroutines.launch
 sealed interface ReaderState {
     data object Empty : ReaderState
     data object Loading : ReaderState
-    data class Ready(val uri: Uri, val name: String, val document: PdfDocument) : ReaderState
+    data class Ready(val uri: Uri, val name: String, val document: PdfDocument, val structure: PdfStructure) : ReaderState
     data class Error(val message: Int) : ReaderState
 }
 
@@ -22,6 +22,7 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
     val state: StateFlow<ReaderState> = _state
 
     val recentFiles = RecentFiles(application)
+    val bookmarks = BookmarkStore(application)
 
     /** Page the reader is currently on; used to restore position after rotation. */
     var currentPage = 0
@@ -39,7 +40,7 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
                 val page = recentFiles.lastPage(uri).coerceIn(0, (document.pageCount - 1).coerceAtLeast(0))
                 recentFiles.remember(RecentFile(uri, name, page))
                 currentPage = page
-                ReaderState.Ready(uri, name, document)
+                ReaderState.Ready(uri, name, document, PdfStructure(getApplication(), uri))
             } catch (e: PasswordProtectedException) {
                 ReaderState.Error(R.string.error_password)
             } catch (e: Exception) {
@@ -70,7 +71,9 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private fun closeCurrent() {
-        (_state.value as? ReaderState.Ready)?.document?.close()
+        val ready = _state.value as? ReaderState.Ready ?: return
+        ready.document.close()
+        ready.structure.close()
     }
 
     override fun onCleared() = closeCurrent()
