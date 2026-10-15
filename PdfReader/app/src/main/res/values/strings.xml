@@ -38,6 +38,10 @@
     <string name="search">Search</string>
     <string name="share">Share</string>
     <string name="rotate_view">Rotate view</string>
+    <string name="print">Print</string>
+    <string name="save_copy">Save a copy</string>
+    <string name="copy_saved">Copy saved</string>
+    <string name="copy_failed">Couldn\'t save the file.</string>
     <string name="copied">Copied to clipboard</string>
     <string name="open_link_title">Open link?</string>
     <string name="open_link">Open</string>

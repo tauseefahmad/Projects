@@ -129,6 +129,20 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private val saveCopy = registerForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { destination ->
+        val ready = shownReady ?: return@registerForActivityResult
+        if (destination == null) return@registerForActivityResult
+        lifecycleScope.launch {
+            val message = try {
+                DocumentExport.saveCopy(this@MainActivity, ready.uri, destination)
+                R.string.copy_saved
+            } catch (e: Exception) {
+                R.string.copy_failed
+            }
+            Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
@@ -424,6 +438,9 @@ class MainActivity : AppCompatActivity() {
                 R.id.action_go_to_page -> showGoToPageDialog()
                 R.id.action_bookmark -> toggleBookmark()
                 R.id.action_rotate -> rotateView()
+                R.id.action_share -> shareDocument()
+                R.id.action_print -> printDocument()
+                R.id.action_save_copy -> shownReady?.let { saveCopy.launch(DocumentExport.safeFileName(it.name)) }
                 R.id.action_search -> openSearch()
                 R.id.zoom_fit_width -> {
                     settings.setFitMode(settings.viewMode, FitMode.FIT_WIDTH)
@@ -499,6 +516,7 @@ class MainActivity : AppCompatActivity() {
         toolbar.menu.findItem(R.id.action_bookmark).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_search).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_rotate).isVisible = ready != null
+        for (id in listOf(R.id.action_share, R.id.action_print, R.id.action_save_copy)) toolbar.menu.findItem(id).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_close).isVisible = ready != null
         toolbar.title = ready?.name ?: getString(R.string.app_name)
         if (ready != null) {
@@ -656,6 +674,24 @@ class MainActivity : AppCompatActivity() {
         thumbnailAdapter?.currentPage = range.first
         if (outlineLoaded) outlineAdapter.showCurrentPage(range.first)
         updateBookmarkButton()
+    }
+
+    private fun shareDocument() {
+        val ready = shownReady ?: return
+        lifecycleScope.launch {
+            try {
+                val uri = DocumentExport.shareableCopy(this@MainActivity, ready.uri, ready.name)
+                startActivity(DocumentExport.shareIntent(this@MainActivity, uri, ready.name))
+            } catch (e: Exception) {
+                Toast.makeText(this@MainActivity, R.string.copy_failed, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun printDocument() {
+        val ready = shownReady ?: return
+        val printManager = getSystemService(android.print.PrintManager::class.java)
+        printManager.print(ready.name, PdfPrintAdapter(this, ready.uri, ready.name, ready.document.pageCount), null)
     }
 
     /** Turns the displayed pages 90° clockwise, staying on the same page. */

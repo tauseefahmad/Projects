@@ -67,6 +67,18 @@
         </menu>
     </item>
     <item
+        android:id="@+id/action_share"
+        android:title="@string/share"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_print"
+        android:title="@string/print"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_save_copy"
+        android:title="@string/save_copy"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/action_rotate"
         android:title="@string/rotate_view"
         app:showAsAction="never" />
