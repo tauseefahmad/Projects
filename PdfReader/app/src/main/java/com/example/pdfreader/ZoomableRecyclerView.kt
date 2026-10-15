@@ -1,23 +1,29 @@
 package com.example.pdfreader
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
-import android.graphics.Matrix
 import android.util.AttributeSet
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
+import android.view.VelocityTracker
+import android.view.ViewConfiguration
 import android.view.animation.DecelerateInterpolator
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.SnapHelper
+import kotlin.math.abs
 
 /**
- * A vertical RecyclerView that supports pinch-to-zoom, double-tap zoom and panning.
+ * A RecyclerView (vertical or horizontal) with pinch-to-zoom, double-tap zoom and panning.
  *
- * Zoom is applied at draw time (the list itself always lays out at 1x). Vertical scrolling
- * still goes through RecyclerView so flinging works; touch coordinates are divided by the
- * zoom so a finger drag moves the content 1:1 on screen. Horizontal panning, and vertical
- * panning that is left over at the ends of the list, adjust [transX]/[transY].
+ * Zoom is applied at draw time; the list itself always lays out at 1x. At 1x RecyclerView
+ * handles touches normally. While zoomed, this view pans the zoomed viewport itself and hands
+ * any movement beyond the viewport's edge to the list as scrolling (with a fling on release),
+ * so you can pan around a page and then carry on to the next one.
  */
 class ZoomableRecyclerView @JvmOverloads constructor(
     context: Context,
@@ -33,10 +39,24 @@ class ZoomableRecyclerView @JvmOverloads constructor(
     /** Called once a pinch or double-tap zoom has settled, so pages can re-render sharper. */
     var onZoomSettled: ((Float) -> Unit)? = null
 
+    /** Called when a finger touches the list, i.e. the user starts moving it by hand. */
+    var onTouchStart: (() -> Unit)? = null
+
+    /** In paged mode, used to settle on a page after a zoomed drag. */
+    var snapHelper: SnapHelper? = null
+
     private var pinching = false
-    private var lastPanX = 0f
-    private var lastPanY = 0f
+    private var manualGesture = false
+    private var lastX = 0f
+    private var lastY = 0f
+    private var scrollRemainder = 0f
+    private var velocityTracker: VelocityTracker? = null
     private var animator: ValueAnimator? = null
+
+    private val viewConfig = ViewConfiguration.get(context)
+
+    private val horizontal: Boolean
+        get() = (layoutManager as? LinearLayoutManager)?.orientation == LinearLayoutManager.HORIZONTAL
 
     private val scaleDetector = ScaleGestureDetector(context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
         override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
@@ -93,7 +113,11 @@ class ZoomableRecyclerView @JvmOverloads constructor(
             duration = 220
             interpolator = DecelerateInterpolator()
             addUpdateListener { zoomTo(it.animatedValue as Float, focusX, focusY) }
-            doOnEndCompat { onZoomSettled?.invoke(zoom) }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    onZoomSettled?.invoke(zoom)
+                }
+            })
             start()
         }
     }
@@ -112,64 +136,100 @@ class ZoomableRecyclerView @JvmOverloads constructor(
 
         when (e.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                onTouchStart?.invoke()
                 pinching = false
-                lastPanX = e.x
-                lastPanY = e.y
+                manualGesture = zoom > 1f
+                scrollRemainder = 0f
+                velocityTracker?.recycle()
+                velocityTracker = VelocityTracker.obtain()
+                if (manualGesture) stopScroll()
             }
-            MotionEvent.ACTION_POINTER_DOWN -> {
-                // Stop the list from scrolling while two fingers are down.
+            MotionEvent.ACTION_POINTER_DOWN -> if (!manualGesture) {
+                // Two fingers: stop RecyclerView's own scrolling and take over.
                 val cancel = MotionEvent.obtain(e).apply { action = MotionEvent.ACTION_CANCEL }
                 super.onTouchEvent(cancel)
                 cancel.recycle()
-                pinching = true
-                return true
+                manualGesture = true
             }
         }
+        velocityTracker?.addMovement(e)
 
-        if (pinching) {
-            // After a pinch, remaining single-finger movement pans until the finger lifts.
-            if (e.actionMasked == MotionEvent.ACTION_MOVE && e.pointerCount == 1 && !scaleDetector.isInProgress) {
-                panBy(e.x - lastPanX, e.y - lastPanY)
+        if (!manualGesture) {
+            lastX = e.x
+            lastY = e.y
+            return super.onTouchEvent(e)
+        }
+
+        when (e.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                lastX = e.x
+                lastY = e.y
             }
-            if (e.actionMasked == MotionEvent.ACTION_POINTER_UP) {
+            MotionEvent.ACTION_MOVE -> {
+                if (e.pointerCount == 1 && !scaleDetector.isInProgress) panBy(e.x - lastX, e.y - lastY)
+                lastX = e.x
+                lastY = e.y
+            }
+            MotionEvent.ACTION_POINTER_UP -> {
                 val remaining = if (e.actionIndex == 0) 1 else 0
-                lastPanX = e.getX(remaining)
-                lastPanY = e.getY(remaining)
-            } else {
-                lastPanX = e.x
-                lastPanY = e.y
+                lastX = e.getX(remaining)
+                lastY = e.getY(remaining)
             }
-            return true
+            MotionEvent.ACTION_UP -> {
+                settle()
+                velocityTracker?.recycle()
+                velocityTracker = null
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                velocityTracker?.recycle()
+                velocityTracker = null
+            }
         }
-
-        if (zoom > 1f && e.actionMasked == MotionEvent.ACTION_MOVE) {
-            transX += e.x - lastPanX
-            // At either end of the list, vertical drags pan the zoomed viewport instead.
-            val dy = e.y - lastPanY
-            if ((dy < 0 && !canScrollVertically(1)) || (dy > 0 && !canScrollVertically(-1))) transY += dy
-            clampTranslation()
-            invalidate()
-        }
-        lastPanX = e.x
-        lastPanY = e.y
-
-        // Let RecyclerView scroll and fling, with movement scaled to match the zoom.
-        val scaled = MotionEvent.obtain(e)
-        scaled.transform(Matrix().apply { setScale(1f / zoom, 1f / zoom) })
-        val handled = super.onTouchEvent(scaled)
-        scaled.recycle()
-        return handled
+        return true
     }
 
-    /** Pans the zoomed viewport; vertical movement past its edges scrolls the list. */
+    /** Pans the zoomed viewport; movement past its edges along the list's axis scrolls the list. */
     private fun panBy(dx: Float, dy: Float) {
+        val beforeX = transX
+        val beforeY = transY
         transX += dx
-        val before = transY
         transY += dy
         clampTranslation()
-        val leftover = dy - (transY - before)
-        if (leftover != 0f) scrollBy(0, (-leftover / zoom).toInt())
+        val leftover = if (horizontal) dx - (transX - beforeX) else dy - (transY - beforeY)
+        if (leftover != 0f) {
+            scrollRemainder += -leftover / zoom
+            val whole = scrollRemainder.toInt()
+            if (whole != 0) {
+                if (horizontal) scrollBy(whole, 0) else scrollBy(0, whole)
+                scrollRemainder -= whole
+            }
+        }
         invalidate()
+    }
+
+    /** After a zoomed drag: fling the list if the viewport is at its edge, then snap pages. */
+    private fun settle() {
+        val tracker = velocityTracker ?: return
+        tracker.computeCurrentVelocity(1000, viewConfig.scaledMaximumFlingVelocity.toFloat())
+        val velocity = if (horizontal) tracker.xVelocity else tracker.yVelocity
+        val trans = if (horizontal) transX else transY
+        val size = if (horizontal) width else height
+        // Finger moving toward the start (negative velocity) scrolls forward once the viewport is at its far edge.
+        val atEdge = if (velocity < 0) trans <= size - size * zoom + 0.5f else trans >= -0.5f
+        var flung = false
+        if (atEdge && abs(velocity) > viewConfig.scaledMinimumFlingVelocity) {
+            val listVelocity = (-velocity / zoom).toInt()
+            flung = if (horizontal) fling(listVelocity, 0) else fling(0, listVelocity)
+        }
+        if (!flung) snapToNearest()
+    }
+
+    private fun snapToNearest() {
+        val helper = snapHelper ?: return
+        val manager = layoutManager ?: return
+        val view = helper.findSnapView(manager) ?: return
+        val distance = helper.calculateDistanceToFinalSnap(manager, view) ?: return
+        if (distance[0] != 0 || distance[1] != 0) smoothScrollBy(distance[0], distance[1])
     }
 
     override fun dispatchDraw(canvas: Canvas) {
@@ -183,12 +243,6 @@ class ZoomableRecyclerView @JvmOverloads constructor(
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         clampTranslation()
-    }
-
-    private fun ValueAnimator.doOnEndCompat(action: () -> Unit) {
-        addListener(object : android.animation.AnimatorListenerAdapter() {
-            override fun onAnimationEnd(animation: android.animation.Animator) = action()
-        })
     }
 
     companion object {

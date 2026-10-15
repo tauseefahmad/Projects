@@ -11,9 +11,44 @@
         android:title="@string/go_to_page"
         app:showAsAction="never" />
     <item
+        android:id="@+id/action_view"
+        android:title="@string/view_menu"
+        app:showAsAction="never">
+        <menu>
+            <group
+                android:id="@+id/group_view_mode"
+                android:checkableBehavior="single">
+                <item
+                    android:id="@+id/view_continuous"
+                    android:title="@string/view_continuous" />
+                <item
+                    android:id="@+id/view_single_page"
+                    android:title="@string/view_single_page" />
+            </group>
+            <group
+                android:id="@+id/group_spread"
+                android:checkableBehavior="single">
+                <item
+                    android:id="@+id/spread_none"
+                    android:title="@string/spread_none" />
+                <item
+                    android:id="@+id/spread_two"
+                    android:title="@string/spread_two" />
+                <item
+                    android:id="@+id/spread_cover"
+                    android:title="@string/spread_cover" />
+            </group>
+        </menu>
+    </item>
+    <item
         android:id="@+id/action_dark_pages"
         android:checkable="true"
         android:title="@string/dark_pages"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_volume_keys"
+        android:checkable="true"
+        android:title="@string/volume_keys"
         app:showAsAction="never" />
     <item
         android:id="@+id/action_close"

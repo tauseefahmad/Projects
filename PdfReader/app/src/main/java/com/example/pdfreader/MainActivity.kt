@@ -5,10 +5,12 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
 import android.text.InputType
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.ScrollView
@@ -25,8 +27,14 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.PagerSnapHelper
 import androidx.recyclerview.widget.RecyclerView
+import com.example.pdfreader.core.Navigation
+import com.example.pdfreader.core.SpreadMode
+import com.example.pdfreader.core.Spreads
+import com.example.pdfreader.core.ViewMode
 import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -34,10 +42,15 @@ import kotlin.math.roundToInt
 class MainActivity : AppCompatActivity() {
 
     private val viewModel: ReaderViewModel by viewModels()
+    private val settings by lazy { ReaderSettings(this) }
 
     private lateinit var toolbar: MaterialToolbar
     private lateinit var pages: ZoomableRecyclerView
-    private lateinit var pageIndicator: TextView
+    private lateinit var fastScroll: FastScrollHandle
+    private lateinit var navBar: View
+    private lateinit var prevPage: ImageButton
+    private lateinit var nextPage: ImageButton
+    private lateinit var pageLabel: MaterialButton
     private lateinit var progress: ProgressBar
     private lateinit var emptyState: ScrollView
     private lateinit var recentSection: LinearLayout
@@ -45,8 +58,14 @@ class MainActivity : AppCompatActivity() {
 
     private var adapter: PageAdapter? = null
     private var shownDocument: PdfDocument? = null
-    private var darkPages = false
-    private val hideIndicator = Runnable { pageIndicator.animate().alpha(0f).setDuration(300) }
+    private val snapHelper = PagerSnapHelper()
+
+    /**
+     * The item the user last navigated to with buttons, keys or the go-to dialog. Near the end
+     * of the list an item may not be able to scroll to the top, so detecting it on screen would
+     * leave "Next" stuck; this remembers it until the user moves the list by hand.
+     */
+    private var explicitItem: Int? = null
 
     private val openDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -67,13 +86,15 @@ class MainActivity : AppCompatActivity() {
 
         toolbar = findViewById(R.id.toolbar)
         pages = findViewById(R.id.pages)
-        pageIndicator = findViewById(R.id.pageIndicator)
+        fastScroll = findViewById(R.id.fastScroll)
+        navBar = findViewById(R.id.navBar)
+        prevPage = findViewById(R.id.prevPage)
+        nextPage = findViewById(R.id.nextPage)
+        pageLabel = findViewById(R.id.pageLabel)
         progress = findViewById(R.id.progress)
         emptyState = findViewById(R.id.emptyState)
         recentSection = findViewById(R.id.recentSection)
         recentList = findViewById(R.id.recentList)
-
-        darkPages = savedInstanceState?.getBoolean(KEY_DARK_PAGES) ?: false
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.root)) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
@@ -81,22 +102,7 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
-        toolbar.inflateMenu(R.menu.main_menu)
-        toolbar.menu.findItem(R.id.action_dark_pages).isChecked = darkPages
-        toolbar.setOnMenuItemClickListener { item ->
-            when (item.itemId) {
-                R.id.action_open -> launchPicker()
-                R.id.action_go_to_page -> showGoToPageDialog()
-                R.id.action_dark_pages -> {
-                    darkPages = !darkPages
-                    item.isChecked = darkPages
-                    adapter?.darkPages = darkPages
-                }
-                R.id.action_close -> viewModel.close()
-                else -> return@setOnMenuItemClickListener false
-            }
-            true
-        }
+        setUpMenu()
 
         findViewById<View>(R.id.openButton).setOnClickListener { launchPicker() }
         findViewById<View>(R.id.clearRecent).setOnClickListener {
@@ -104,10 +110,15 @@ class MainActivity : AppCompatActivity() {
             showRecentFiles()
         }
 
-        pages.layoutManager = LinearLayoutManager(this)
+        prevPage.setOnClickListener { stepItems(-1) }
+        nextPage.setOnClickListener { stepItems(1) }
+        pageLabel.setOnClickListener { showGoToPageDialog() }
+        fastScroll.onScrubbed = { page -> goToPage(page) }
+
         pages.addOnScrollListener(object : RecyclerView.OnScrollListener() {
-            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) = updatePageIndicator()
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) = updatePageLabel()
         })
+        pages.onTouchStart = { explicitItem = null }
         pages.onZoomSettled = { zoom ->
             // Re-render in 0.5 steps (max 2x) so text stays sharp without exhausting memory.
             adapter?.renderScale = ((zoom.coerceAtMost(2f) * 2).roundToInt() / 2f).coerceAtLeast(1f)
@@ -127,17 +138,93 @@ class MainActivity : AppCompatActivity() {
         handleIntent(intent)
     }
 
-    override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-        outState.putBoolean(KEY_DARK_PAGES, darkPages)
-    }
-
     override fun onStop() {
         super.onStop()
         if (shownDocument != null) {
             viewModel.updatePage(currentPage())
             viewModel.savePage()
         }
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val spreads = adapter?.spreads
+        if (spreads != null && shownDocument != null) {
+            val action = KeyNavigation.actionFor(event.keyCode, event.isCtrlPressed, event.isShiftPressed, settings.volumeKeysTurnPages)
+            // Arrow keys still move focus around the toolbar when it has focus.
+            val focusInToolbar = currentFocus?.let { isInside(it, toolbar) } == true
+            if (action != null && !focusInToolbar) {
+                if (event.action == KeyEvent.ACTION_DOWN) {
+                    when (action) {
+                        NavAction.NEXT -> stepItems(1)
+                        NavAction.PREVIOUS -> stepItems(-1)
+                        NavAction.FIRST -> scrollToItem(0)
+                        NavAction.LAST -> scrollToItem(spreads.size - 1)
+                        NavAction.GO_TO -> if (event.repeatCount == 0) showGoToPageDialog()
+                    }
+                }
+                return true
+            }
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
+    private fun isInside(view: View, ancestor: View): Boolean {
+        var current: View? = view
+        while (current != null) {
+            if (current === ancestor) return true
+            current = current.parent as? View
+        }
+        return false
+    }
+
+    private fun setUpMenu() {
+        toolbar.inflateMenu(R.menu.main_menu)
+        syncMenuChecks()
+        toolbar.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                R.id.action_open -> launchPicker()
+                R.id.action_go_to_page -> showGoToPageDialog()
+                R.id.view_continuous -> changeLayout { settings.viewMode = ViewMode.CONTINUOUS }
+                R.id.view_single_page -> changeLayout { settings.viewMode = ViewMode.SINGLE_PAGE }
+                R.id.spread_none -> changeLayout { settings.spreadMode = SpreadMode.NONE }
+                R.id.spread_two -> changeLayout { settings.spreadMode = SpreadMode.TWO_PAGE }
+                R.id.spread_cover -> changeLayout { settings.spreadMode = SpreadMode.TWO_PAGE_COVER }
+                R.id.action_dark_pages -> {
+                    settings.darkPages = !settings.darkPages
+                    adapter?.darkPages = settings.darkPages
+                    syncMenuChecks()
+                }
+                R.id.action_volume_keys -> {
+                    settings.volumeKeysTurnPages = !settings.volumeKeysTurnPages
+                    syncMenuChecks()
+                }
+                R.id.action_close -> viewModel.close()
+                else -> return@setOnMenuItemClickListener false
+            }
+            true
+        }
+    }
+
+    private fun syncMenuChecks() {
+        val menu = toolbar.menu
+        menu.findItem(if (settings.viewMode == ViewMode.SINGLE_PAGE) R.id.view_single_page else R.id.view_continuous).isChecked = true
+        menu.findItem(
+            when (settings.spreadMode) {
+                SpreadMode.NONE -> R.id.spread_none
+                SpreadMode.TWO_PAGE -> R.id.spread_two
+                SpreadMode.TWO_PAGE_COVER -> R.id.spread_cover
+            }
+        ).isChecked = true
+        menu.findItem(R.id.action_dark_pages).isChecked = settings.darkPages
+        menu.findItem(R.id.action_volume_keys).isChecked = settings.volumeKeysTurnPages
+    }
+
+    /** Applies a layout setting change while keeping the reader on the same page. */
+    private fun changeLayout(update: () -> Unit) {
+        val page = if (shownDocument != null) currentPage() else 0
+        update()
+        syncMenuChecks()
+        shownDocument?.let { applyLayout(it, page) }
     }
 
     private fun handleIntent(intent: Intent?) {
@@ -152,6 +239,7 @@ class MainActivity : AppCompatActivity() {
         progress.isVisible = state is ReaderState.Loading
         val ready = state as? ReaderState.Ready
         pages.isVisible = ready != null
+        navBar.isVisible = ready != null
         emptyState.isVisible = state is ReaderState.Empty || state is ReaderState.Error
         toolbar.menu.findItem(R.id.action_go_to_page).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_close).isVisible = ready != null
@@ -159,12 +247,9 @@ class MainActivity : AppCompatActivity() {
 
         if (ready == null) {
             showDocument(null)
-            pageIndicator.isVisible = false
             showRecentFiles()
         } else if (ready.document !== shownDocument) {
             showDocument(ready.document)
-            (pages.layoutManager as LinearLayoutManager).scrollToPositionWithOffset(viewModel.currentPage, 0)
-            pages.post { updatePageIndicator() }
         }
 
         if (state is ReaderState.Error) {
@@ -175,32 +260,103 @@ class MainActivity : AppCompatActivity() {
 
     private fun showDocument(document: PdfDocument?) {
         shownDocument = document
+        explicitItem = null
+        if (document == null) {
+            pages.resetZoom()
+            adapter = null
+            pages.adapter = null
+            fastScroll.isVisible = false
+        } else {
+            applyLayout(document, viewModel.currentPage)
+        }
+    }
+
+    /** (Re)builds the list for the current view and spread settings, starting at [page]. */
+    private fun applyLayout(document: PdfDocument, page: Int) {
         pages.resetZoom()
-        adapter = document?.let { PageAdapter(it, lifecycleScope).also { a -> a.darkPages = darkPages } }
+        val viewMode = settings.viewMode
+        val single = viewMode == ViewMode.SINGLE_PAGE
+        pages.layoutManager = LinearLayoutManager(this, if (single) RecyclerView.HORIZONTAL else RecyclerView.VERTICAL, false)
+        snapHelper.attachToRecyclerView(if (single) pages else null)
+        pages.snapHelper = if (single) snapHelper else null
+
+        val spreads = Spreads(document.pageCount, settings.spreadMode)
+        adapter = PageAdapter(document, lifecycleScope, spreads, viewMode).also { it.darkPages = settings.darkPages }
         pages.adapter = adapter
+
+        fastScroll.pageCount = document.pageCount
+        fastScroll.isVisible = !single && document.pageCount > 2
+
+        scrollToItem(spreads.itemForPage(page))
+    }
+
+    /** Adapter position of the item the reader is on. */
+    private fun currentItem(): Int {
+        explicitItem?.let { return it }
+        val continuous = settings.viewMode == ViewMode.CONTINUOUS
+        val itemCount = adapter?.itemCount ?: 0
+        // Scrolled to the very end: the last item is fully in view.
+        if (continuous && itemCount > 0 && !pages.canScrollVertically(1) && pages.canScrollVertically(-1)) return itemCount - 1
+        // Continuous: the item in the upper part of the screen; paged: the one in the middle.
+        val probeY = if (continuous) pages.height * 0.25f else pages.height / 2f
+        val child = pages.findChildViewUnder(pages.toContentX(pages.width / 2f), pages.toContentY(probeY))
+        val position = child?.let { pages.getChildAdapterPosition(it) } ?: RecyclerView.NO_POSITION
+        if (position != RecyclerView.NO_POSITION) return position
+        return (pages.layoutManager as? LinearLayoutManager)?.findFirstVisibleItemPosition()?.coerceAtLeast(0) ?: 0
     }
 
     private fun currentPage(): Int {
-        val child = pages.findChildViewUnder(pages.toContentX(pages.width / 2f), pages.toContentY(pages.height / 2f))
-            ?: return (pages.layoutManager as LinearLayoutManager).findFirstVisibleItemPosition().coerceAtLeast(0)
-        return pages.getChildAdapterPosition(child).coerceAtLeast(0)
+        val spreads = adapter?.spreads ?: return 0
+        if (spreads.size == 0) return 0
+        return spreads.items[currentItem().coerceIn(0, spreads.size - 1)].first
     }
 
-    private fun updatePageIndicator() {
+    private fun stepItems(delta: Int) {
+        val spreads = adapter?.spreads ?: return
+        if (spreads.size == 0) return
+        val target = (currentItem() + delta).coerceIn(0, spreads.size - 1)
+        scrollToItem(target, smooth = settings.viewMode == ViewMode.SINGLE_PAGE && kotlin.math.abs(delta) == 1)
+    }
+
+    private fun goToPage(page: Int) {
+        val spreads = adapter?.spreads ?: return
+        scrollToItem(spreads.itemForPage(page))
+    }
+
+    private fun scrollToItem(item: Int, smooth: Boolean = false) {
+        explicitItem = item
+        if (smooth) {
+            pages.smoothScrollToPosition(item)
+        } else {
+            (pages.layoutManager as? LinearLayoutManager)?.scrollToPositionWithOffset(item, 0)
+        }
+        // onScrolled fires after the next layout; also refresh once laid out in case nothing moved.
+        pages.post { updatePageLabel() }
+    }
+
+    private fun updatePageLabel() {
         val document = shownDocument ?: return
-        val page = currentPage()
-        viewModel.updatePage(page)
-        pageIndicator.text = getString(R.string.page_indicator, page + 1, document.pageCount)
-        pageIndicator.isVisible = true
-        pageIndicator.animate().cancel()
-        pageIndicator.alpha = 1f
-        pageIndicator.removeCallbacks(hideIndicator)
-        pageIndicator.postDelayed(hideIndicator, 1500)
+        val spreads = adapter?.spreads ?: return
+        if (spreads.size == 0) return
+        val item = currentItem().coerceIn(0, spreads.size - 1)
+        val range = spreads.items[item]
+        viewModel.updatePage(range.first)
+        pageLabel.text = if (range.first == range.last) {
+            getString(R.string.page_indicator, range.first + 1, document.pageCount)
+        } else {
+            getString(R.string.page_indicator_spread, range.first + 1, range.last + 1, document.pageCount)
+        }
+        prevPage.isEnabled = item > 0
+        nextPage.isEnabled = item < spreads.size - 1
+        prevPage.alpha = if (prevPage.isEnabled) 1f else 0.38f
+        nextPage.alpha = if (nextPage.isEnabled) 1f else 0.38f
+        fastScroll.fraction = Navigation.fractionForPage(range.first, document.pageCount)
     }
 
     private fun showGoToPageDialog() {
         val document = shownDocument ?: return
         val input = EditText(this).apply {
+            id = R.id.page_input
             inputType = InputType.TYPE_CLASS_NUMBER
             hint = getString(R.string.page_number_hint, document.pageCount)
             setText((currentPage() + 1).toString())
@@ -215,10 +371,7 @@ class MainActivity : AppCompatActivity() {
             .setTitle(R.string.go_to_page)
             .setView(container)
             .setPositiveButton(R.string.go) { _, _ ->
-                val page = input.text.toString().toIntOrNull() ?: return@setPositiveButton
-                (pages.layoutManager as LinearLayoutManager)
-                    .scrollToPositionWithOffset((page - 1).coerceIn(0, document.pageCount - 1), 0)
-                pages.post { updatePageIndicator() }
+                Navigation.parsePageInput(input.text.toString(), document.pageCount)?.let(::goToPage)
             }
             .setNegativeButton(R.string.cancel, null)
             .show()
@@ -248,9 +401,5 @@ class MainActivity : AppCompatActivity() {
             // Fall back to the last path segment below.
         }
         return uri.lastPathSegment?.substringAfterLast('/') ?: "Document.pdf"
-    }
-
-    private companion object {
-        const val KEY_DARK_PAGES = "dark_pages"
     }
 }

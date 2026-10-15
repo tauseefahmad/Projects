@@ -25,21 +25,19 @@
             android:layout_height="match_parent"
             android:background="@color/reader_background"
             android:clipToPadding="false"
-            android:paddingTop="8dp"
-            android:paddingBottom="8dp"
+            android:focusable="true"
+            android:focusedByDefault="true"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp"
             android:visibility="gone" />
 
-        <TextView
-            android:id="@+id/pageIndicator"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="bottom|center_horizontal"
-            android:layout_marginBottom="16dp"
-            android:background="@drawable/page_indicator_bg"
-            android:paddingHorizontal="12dp"
-            android:paddingVertical="4dp"
-            android:textColor="#FFFFFF"
-            android:textSize="13sp"
+        <com.example.pdfreader.FastScrollHandle
+            android:id="@+id/fastScroll"
+            android:layout_width="120dp"
+            android:layout_height="match_parent"
+            android:layout_gravity="end"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
             android:visibility="gone" />
 
         <ProgressBar
@@ -129,4 +127,39 @@
             </LinearLayout>
         </ScrollView>
     </FrameLayout>
+
+    <LinearLayout
+        android:id="@+id/navBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:paddingVertical="2dp"
+        android:visibility="gone">
+
+        <ImageButton
+            android:id="@+id/prevPage"
+            style="?attr/borderlessButtonStyle"
+            android:layout_width="56dp"
+            android:layout_height="48dp"
+            android:contentDescription="@string/previous_page"
+            android:src="@drawable/ic_chevron_left" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/pageLabel"
+            style="?attr/borderlessButtonStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:minWidth="120dp"
+            android:contentDescription="@string/go_to_page"
+            android:textAppearance="?attr/textAppearanceTitleMedium" />
+
+        <ImageButton
+            android:id="@+id/nextPage"
+            style="?attr/borderlessButtonStyle"
+            android:layout_width="56dp"
+            android:layout_height="48dp"
+            android:contentDescription="@string/next_page"
+            android:src="@drawable/ic_chevron_right" />
+    </LinearLayout>
 </LinearLayout>

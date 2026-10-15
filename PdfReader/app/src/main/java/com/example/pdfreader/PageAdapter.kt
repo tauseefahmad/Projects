@@ -1,24 +1,36 @@
 package com.example.pdfreader
 
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.util.LruCache
-import android.view.LayoutInflater
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
+import android.widget.LinearLayout
 import androidx.recyclerview.widget.RecyclerView
+import com.example.pdfreader.core.PageBox
+import com.example.pdfreader.core.PageFit
+import com.example.pdfreader.core.Spreads
+import com.example.pdfreader.core.ViewMode
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
-/** Shows one PDF page per row, rendering lazily as rows scroll into view. */
+/**
+ * Shows the document as list items of one page, or two pages side by side in spread mode.
+ * Pages render lazily as items scroll into view; RecyclerView keeps only the visible items
+ * (plus a small prefetch buffer) alive, so long documents don't hold every page in memory.
+ */
 class PageAdapter(
     private val document: PdfDocument,
     private val scope: CoroutineScope,
-) : RecyclerView.Adapter<PageAdapter.PageHolder>() {
+    val spreads: Spreads,
+    private val viewMode: ViewMode,
+) : RecyclerView.Adapter<PageAdapter.ItemHolder>() {
 
     /** Extra resolution multiplier while zoomed in, so text stays crisp. */
     var renderScale = 1f
@@ -50,53 +62,104 @@ class PageAdapter(
         this.recyclerView = null
     }
 
-    class PageHolder(view: View) : RecyclerView.ViewHolder(view) {
-        val image: ImageView = view.findViewById(R.id.pageImage)
-        var job: Job? = null
+    class ItemHolder(val row: LinearLayout, val images: List<ImageView>) : RecyclerView.ViewHolder(row) {
+        val jobs = arrayOfNulls<Job>(images.size)
     }
 
-    override fun getItemCount() = document.pageCount
+    override fun getItemCount() = spreads.size
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PageHolder =
-        PageHolder(LayoutInflater.from(parent.context).inflate(R.layout.item_page, parent, false))
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ItemHolder {
+        val density = parent.resources.displayMetrics.density
+        val row = LinearLayout(parent.context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            val single = viewMode == ViewMode.SINGLE_PAGE
+            layoutParams = RecyclerView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                if (single) ViewGroup.LayoutParams.MATCH_PARENT else ViewGroup.LayoutParams.WRAP_CONTENT,
+            )
+            val h = (ROW_PADDING_H_DP * density).toInt()
+            val v = (ROW_PADDING_V_DP * density).toInt()
+            setPadding(h, v, h, v)
+        }
+        val images = List(2) { index ->
+            ImageView(parent.context).apply {
+                setBackgroundColor(Color.WHITE)
+                elevation = 2 * density
+                scaleType = ImageView.ScaleType.FIT_XY
+                layoutParams = LinearLayout.LayoutParams(0, 0).apply {
+                    if (index == 1) marginStart = (GAP_DP * density).toInt()
+                }
+                row.addView(this)
+            }
+        }
+        return ItemHolder(row, images)
+    }
 
-    override fun onBindViewHolder(holder: PageHolder, position: Int, payloads: MutableList<Any>) {
+    override fun onBindViewHolder(holder: ItemHolder, position: Int, payloads: MutableList<Any>) {
         if (payloads.isNotEmpty() && payloads.all { it == PAYLOAD_FILTER }) {
-            applyFilter(holder.image)
+            holder.images.forEach(::applyFilter)
         } else {
             onBindViewHolder(holder, position)
         }
     }
 
-    override fun onBindViewHolder(holder: PageHolder, position: Int) {
+    override fun onBindViewHolder(holder: ItemHolder, position: Int) {
         val parent = recyclerView ?: return
-        val rowPadding = holder.itemView.paddingLeft + holder.itemView.paddingRight
-        val width = parent.width - parent.paddingLeft - parent.paddingRight - rowPadding
-        if (width <= 0) return bindLater(holder, position)
+        val row = holder.row
+        val availableWidth = parent.width - parent.paddingLeft - parent.paddingRight - row.paddingLeft - row.paddingRight
+        val availableHeight = parent.height - parent.paddingTop - parent.paddingBottom - row.paddingTop - row.paddingBottom
+        if (availableWidth <= 0) return bindLater(holder, position)
 
-        val size = document.pageSizes[position]
-        val height = (width.toLong() * size.height / size.width).toInt()
-        holder.image.layoutParams = holder.image.layoutParams.apply { this.height = height }
-        holder.image.contentDescription = "Page ${position + 1}"
-        applyFilter(holder.image)
+        val pages = spreads.items[position].toList()
+        val gap = (GAP_DP * parent.resources.displayMetrics.density).toInt()
+        val boxes = PageFit.fit(
+            pages.map { PageBox(document.pageSizes[it].width, document.pageSizes[it].height) },
+            availableWidth,
+            if (viewMode == ViewMode.SINGLE_PAGE) availableHeight else null,
+            gap,
+        )
 
-        val renderWidth = (width * renderScale).toInt().coerceAtMost(MAX_RENDER_WIDTH)
-        val key = "$position@$renderWidth"
-        holder.job?.cancel()
+        holder.images.forEachIndexed { slot, image ->
+            holder.jobs[slot]?.cancel()
+            if (slot >= pages.size) {
+                image.visibility = View.GONE
+                image.setImageDrawable(null)
+                image.tag = null
+                return@forEachIndexed
+            }
+            val page = pages[slot]
+            val box = boxes[slot]
+            image.visibility = View.VISIBLE
+            image.layoutParams = image.layoutParams.apply {
+                width = box.width
+                height = box.height
+            }
+            image.contentDescription = "Page ${page + 1}"
+            applyFilter(image)
+            bindPage(holder, slot, page, box.width)
+        }
+    }
+
+    private fun bindPage(holder: ItemHolder, slot: Int, page: Int, displayWidth: Int) {
+        val image = holder.images[slot]
+        val renderWidth = (displayWidth * renderScale).toInt().coerceIn(1, MAX_RENDER_WIDTH)
+        val key = "$page@$renderWidth"
         val cached = cache.get(key)
         if (cached != null) {
-            holder.image.setImageBitmap(cached)
+            image.setImageBitmap(cached)
+            image.tag = page
             return
         }
 
         // Keep showing an older (blurrier) render of the same page while the sharp one loads.
-        if (holder.image.tag != position) holder.image.setImageDrawable(null)
-        holder.image.tag = position
-        holder.job = scope.launch {
+        if (image.tag != page) image.setImageDrawable(null)
+        image.tag = page
+        holder.jobs[slot] = scope.launch {
             try {
-                val bitmap = document.renderPage(position, renderWidth)
+                val bitmap = document.renderPage(page, renderWidth)
                 cache.put(key, bitmap)
-                if (holder.bindingAdapterPosition == position) holder.image.setImageBitmap(bitmap)
+                if (image.tag == page) image.setImageBitmap(bitmap)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -105,20 +168,20 @@ class PageAdapter(
         }
     }
 
-    /** The first bind can happen before the list has a width; retry after layout. */
-    private fun bindLater(holder: PageHolder, position: Int) {
+    /** The first bind can happen before the list has a size; retry after layout. */
+    private fun bindLater(holder: ItemHolder, position: Int) {
         holder.itemView.post {
             if (holder.bindingAdapterPosition == position) onBindViewHolder(holder, position)
         }
     }
 
-    override fun onViewRecycled(holder: PageHolder) {
-        holder.job?.cancel()
-        holder.image.setImageDrawable(null)
-        holder.image.tag = null
+    override fun onViewRecycled(holder: ItemHolder) {
+        holder.jobs.forEach { it?.cancel() }
+        holder.images.forEach {
+            it.setImageDrawable(null)
+            it.tag = null
+        }
     }
-
-    fun clearCache() = cache.evictAll()
 
     private fun applyFilter(image: ImageView) {
         image.colorFilter = if (darkPages) INVERT else null
@@ -128,6 +191,9 @@ class PageAdapter(
         const val PAYLOAD_RERENDER = "rerender"
         const val PAYLOAD_FILTER = "filter"
         const val MAX_RENDER_WIDTH = 2400
+        const val GAP_DP = 6
+        const val ROW_PADDING_H_DP = 8
+        const val ROW_PADDING_V_DP = 4
 
         val INVERT = ColorMatrixColorFilter(
             ColorMatrix(
