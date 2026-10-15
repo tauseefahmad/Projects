@@ -20,7 +20,11 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.GravityCompat
 import androidx.core.view.ViewCompat
+import androidx.drawerlayout.widget.DrawerLayout
+import androidx.recyclerview.widget.GridLayoutManager
+import com.google.android.material.tabs.TabLayout
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
 import androidx.lifecycle.Lifecycle
@@ -57,6 +61,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var recentSection: LinearLayout
     private lateinit var recentList: LinearLayout
     private lateinit var zoom: ZoomController
+    private lateinit var drawer: DrawerLayout
+    private lateinit var thumbnails: RecyclerView
+    private var thumbnailAdapter: ThumbnailAdapter? = null
 
     private var adapter: PageAdapter? = null
     private var shownDocument: PdfDocument? = null
@@ -97,11 +104,18 @@ class MainActivity : AppCompatActivity() {
         emptyState = findViewById(R.id.emptyState)
         recentSection = findViewById(R.id.recentSection)
         recentList = findViewById(R.id.recentList)
+        drawer = findViewById(R.id.drawer)
+        thumbnails = findViewById(R.id.thumbnails)
+        thumbnails.layoutManager = GridLayoutManager(this, 2)
+        setUpSidePanel()
         zoom = ZoomController(pages, findViewById(R.id.zoomLabel), lifecycleScope, ::currentItem) { scrollToItem(it) }
 
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.root)) { view, insets ->
+        val root = findViewById<View>(R.id.root)
+        val sidePanel = findViewById<View>(R.id.sidePanel)
+        ViewCompat.setOnApplyWindowInsetsListener(drawer) { _, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
-            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            root.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            sidePanel.setPadding(bars.left, bars.top, 0, bars.bottom)
             insets
         }
 
@@ -179,6 +193,36 @@ class MainActivity : AppCompatActivity() {
         return false
     }
 
+    private fun setUpSidePanel() {
+        val tabs = findViewById<TabLayout>(R.id.sideTabs)
+        tabs.addTab(tabs.newTab().setText(R.string.tab_pages))
+        toolbar.setNavigationOnClickListener {
+            if (drawer.isDrawerOpen(GravityCompat.START)) drawer.closeDrawer(GravityCompat.START) else openSidePanel()
+        }
+        drawer.addDrawerListener(object : DrawerLayout.SimpleDrawerListener() {
+            override fun onDrawerOpened(drawerView: View) = scrollThumbnailsToCurrent()
+        })
+        // Close the panel with Back before leaving the app.
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() = drawer.closeDrawer(GravityCompat.START)
+        }.also { callback ->
+            drawer.addDrawerListener(object : DrawerLayout.SimpleDrawerListener() {
+                override fun onDrawerOpened(drawerView: View) { callback.isEnabled = true }
+                override fun onDrawerClosed(drawerView: View) { callback.isEnabled = false }
+            })
+        })
+    }
+
+    private fun openSidePanel() {
+        scrollThumbnailsToCurrent()
+        drawer.openDrawer(GravityCompat.START)
+    }
+
+    private fun scrollThumbnailsToCurrent() {
+        val page = thumbnailAdapter?.currentPage ?: return
+        (thumbnails.layoutManager as GridLayoutManager).scrollToPositionWithOffset(page, thumbnails.height / 3)
+    }
+
     private fun setUpMenu() {
         toolbar.inflateMenu(R.menu.main_menu)
         val zoomMenu = toolbar.menu.findItem(R.id.action_zoom).subMenu!!
@@ -208,6 +252,7 @@ class MainActivity : AppCompatActivity() {
                 R.id.action_dark_pages -> {
                     settings.darkPages = !settings.darkPages
                     adapter?.darkPages = settings.darkPages
+                    thumbnailAdapter?.darkPages = settings.darkPages
                     zoom.refreshDetail()
                     syncMenuChecks()
                 }
@@ -262,6 +307,15 @@ class MainActivity : AppCompatActivity() {
         toolbar.menu.findItem(R.id.action_zoom).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_close).isVisible = ready != null
         toolbar.title = ready?.name ?: getString(R.string.app_name)
+        if (ready != null) {
+            toolbar.setNavigationIcon(R.drawable.ic_side_panel)
+            toolbar.setNavigationContentDescription(R.string.open_side_panel)
+            drawer.setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED)
+        } else {
+            toolbar.navigationIcon = null
+            drawer.closeDrawer(GravityCompat.START, false)
+            drawer.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED)
+        }
 
         if (ready == null) {
             showDocument(null)
@@ -279,6 +333,13 @@ class MainActivity : AppCompatActivity() {
     private fun showDocument(document: PdfDocument?) {
         shownDocument = document
         explicitItem = null
+        thumbnailAdapter = document?.let { doc ->
+            ThumbnailAdapter(doc, lifecycleScope) { page ->
+                goToPage(page)
+                drawer.closeDrawer(GravityCompat.START)
+            }.also { it.darkPages = settings.darkPages }
+        }
+        thumbnails.adapter = thumbnailAdapter
         if (document == null) {
             zoom.reset()
             zoom.document = null
@@ -379,6 +440,7 @@ class MainActivity : AppCompatActivity() {
         prevPage.alpha = if (prevPage.isEnabled) 1f else 0.38f
         nextPage.alpha = if (nextPage.isEnabled) 1f else 0.38f
         fastScroll.fraction = Navigation.fractionForPage(range.first, document.pageCount)
+        thumbnailAdapter?.currentPage = range.first
     }
 
     private fun showGoToPageDialog() {
