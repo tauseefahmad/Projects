@@ -34,15 +34,24 @@ class FullScreenTest {
     @Before
     fun setUp() {
         ReaderTestSupport.resetAppState()
-        // Skip Android's one-time "swipe to exit full screen" notice, a system window over the app.
-        androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().uiAutomation
-            .executeShellCommand("settings put secure immersive_mode_confirmations confirmed").close()
     }
 
     private fun enterFullScreen() {
         openActionBarOverflowOrOptionsMenu(context)
         onView(withText(R.string.full_screen)).perform(click())
         waitFor { onView(withId(R.id.toolbar)).check(matches(withEffectiveVisibility(Visibility.GONE))) }
+        dismissFullScreenNotice()
+    }
+
+    /**
+     * The first time an app hides the system bars, Android shows a "Viewing full screen" notice
+     * in a system window over the app, which would swallow the test's taps. Close it.
+     */
+    private fun dismissFullScreenNotice() {
+        val device = androidx.test.uiautomator.UiDevice.getInstance(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation())
+        val button = device.wait(androidx.test.uiautomator.Until.findObject(androidx.test.uiautomator.By.text(java.util.regex.Pattern.compile("(?i)got it"))), 2_000)
+        button?.click()
+        device.waitForIdle()
     }
 
     /** Taps the page list at a fraction of its width, halfway down. */
