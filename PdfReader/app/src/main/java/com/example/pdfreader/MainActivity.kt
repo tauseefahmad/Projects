@@ -222,6 +222,7 @@ class MainActivity : AppCompatActivity() {
         super.onStop()
         if (shownDocument != null) {
             viewModel.updatePage(currentPage())
+            viewModel.updateZoom(zoom.state)
             viewModel.savePage()
         }
     }
@@ -476,7 +477,11 @@ class MainActivity : AppCompatActivity() {
                     settings.volumeKeysTurnPages = !settings.volumeKeysTurnPages
                     syncMenuChecks()
                 }
-                R.id.action_close -> viewModel.close()
+                R.id.action_close -> {
+                    viewModel.updatePage(currentPage())
+                    viewModel.updateZoom(zoom.state)
+                    viewModel.close()
+                }
                 else -> return@setOnMenuItemClickListener false
             }
             true
@@ -637,7 +642,13 @@ class MainActivity : AppCompatActivity() {
         scrollToItem(spreads.itemForPage(page))
         val newAdapter = adapter
         // Fit modes need the list's size, so apply the default once it has been laid out.
-        pages.post { if (adapter === newAdapter) zoom.apply(settings.fitMode(viewMode), announce = false) }
+        pages.post {
+            if (adapter !== newAdapter) return@post
+            // Reopened documents come back at their saved zoom; otherwise use the fit mode.
+            val saved = viewModel.zoomToRestore
+            viewModel.zoomToRestore = null
+            if (saved != null) zoom.restore(saved) else zoom.apply(settings.fitMode(viewMode), announce = false)
+        }
     }
 
     /** Adapter position of the item the reader is on. */

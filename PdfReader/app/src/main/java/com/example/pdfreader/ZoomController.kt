@@ -84,6 +84,9 @@ class ZoomController(
         setPercent(next)
     }
 
+    /** Restores a saved zoom (e.g. when a document is reopened), quietly. */
+    fun restore(state: ZoomState) = apply(state, alignStart = true, announce = false)
+
     /** Resets to 1x without a re-layout; used when a new layout is built. */
     fun reset() {
         detailJob?.cancel()

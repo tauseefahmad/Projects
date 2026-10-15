@@ -2,10 +2,17 @@ package com.example.pdfreader
 
 import android.content.Context
 import android.net.Uri
+import com.example.pdfreader.core.ZoomState
 import org.json.JSONArray
 import org.json.JSONObject
 
-data class RecentFile(val uri: Uri, val name: String, val page: Int)
+/** A recently opened document with where the reader left off: page and zoom. */
+data class RecentFile(
+    val uri: Uri,
+    val name: String,
+    val page: Int,
+    val zoom: ZoomState? = null,
+)
 
 /** Remembers the last few documents and the page the reader was on. */
 class RecentFiles(context: Context) {
@@ -18,14 +25,19 @@ class RecentFiles(context: Context) {
             val array = JSONArray(json)
             (0 until array.length()).map { i ->
                 val item = array.getJSONObject(i)
-                RecentFile(Uri.parse(item.getString("uri")), item.getString("name"), item.optInt("page", 0))
+                val zoom = if (item.has("layoutScale")) {
+                    ZoomState(item.getDouble("layoutScale").toFloat(), item.getDouble("drawZoom").toFloat())
+                } else {
+                    null
+                }
+                RecentFile(Uri.parse(item.getString("uri")), item.getString("name"), item.optInt("page", 0), zoom)
             }
         } catch (e: Exception) {
             emptyList()
         }
     }
 
-    fun lastPage(uri: Uri): Int = load().firstOrNull { it.uri == uri }?.page ?: 0
+    fun find(uri: Uri): RecentFile? = load().firstOrNull { it.uri == uri }
 
     /** Moves (or adds) [file] to the top of the list. */
     fun remember(file: RecentFile) {
@@ -39,7 +51,9 @@ class RecentFiles(context: Context) {
     private fun save(files: List<RecentFile>) {
         val array = JSONArray()
         files.take(MAX).forEach {
-            array.put(JSONObject().put("uri", it.uri.toString()).put("name", it.name).put("page", it.page))
+            val item = JSONObject().put("uri", it.uri.toString()).put("name", it.name).put("page", it.page)
+            it.zoom?.let { zoom -> item.put("layoutScale", zoom.layoutScale.toDouble()).put("drawZoom", zoom.drawZoom.toDouble()) }
+            array.put(item)
         }
         prefs.edit().putString(KEY, array.toString()).apply()
     }
