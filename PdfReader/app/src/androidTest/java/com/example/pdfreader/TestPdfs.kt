@@ -50,6 +50,34 @@ object TestPdfs {
         return FileProvider.getUriForFile(context, "${context.packageName}.files", file)
     }
 
+    /**
+     * A 3-page PDF whose first page has two links: an internal one to page 3 covering
+     * (72, 100)–(272, 140) pt from the top-left, and one to https://example.com/ at (72, 200)–(272, 240).
+     */
+    fun createWithLinks(context: Context, name: String): Uri {
+        com.tom_roush.pdfbox.android.PDFBoxResourceLoader.init(context)
+        val dir = File(context.cacheDir, "shared").apply { mkdirs() }
+        val file = File(dir, name)
+        com.tom_roush.pdfbox.pdmodel.PDDocument().use { document ->
+            val a4 = com.tom_roush.pdfbox.pdmodel.common.PDRectangle.A4
+            val pages = List(3) { com.tom_roush.pdfbox.pdmodel.PDPage(a4).also(document::addPage) }
+            val height = a4.height
+            fun rect(top: Float, bottom: Float) = com.tom_roush.pdfbox.pdmodel.common.PDRectangle(72f, height - bottom, 200f, bottom - top)
+
+            val internal = com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink()
+            internal.rectangle = rect(100f, 140f)
+            internal.action = com.tom_roush.pdfbox.pdmodel.interactive.action.PDActionGoTo().apply {
+                destination = com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.destination.PDPageFitDestination().apply { page = pages[2] }
+            }
+            val external = com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink()
+            external.rectangle = rect(200f, 240f)
+            external.action = com.tom_roush.pdfbox.pdmodel.interactive.action.PDActionURI().apply { uri = "https://example.com/" }
+            pages[0].annotations = listOf(internal, external)
+            document.save(file)
+        }
+        return FileProvider.getUriForFile(context, "${context.packageName}.files", file)
+    }
+
     /** An outline entry for [createWithOutline]: [page] is 0-based. */
     class Entry(val title: String, val page: Int, val children: List<Entry> = emptyList())
 

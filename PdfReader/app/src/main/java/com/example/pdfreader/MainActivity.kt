@@ -48,6 +48,7 @@ import android.view.inputmethod.EditorInfo
 import androidx.appcompat.widget.PopupMenu
 import androidx.core.view.WindowCompat
 import androidx.core.widget.doAfterTextChanged
+import com.example.pdfreader.core.Links
 import com.example.pdfreader.core.SearchMatch
 import com.example.pdfreader.core.SearchOptions
 import kotlinx.coroutines.Job
@@ -152,7 +153,7 @@ class MainActivity : AppCompatActivity() {
         textSelection = TextSelectionController(this, pages, findViewById(R.id.selectionHandles), lifecycleScope) { shownReady?.structure }
         pages.viewportChangedListeners += { textSelection.onViewportChanged() }
         pages.onLongPress = { x, y -> textSelection.startAt(x, y) }
-        pages.onSingleTap = { _, _ -> if (textSelection.isActive) textSelection.clear() }
+        pages.onSingleTap = ::onPageTap
 
         val root = findViewById<View>(R.id.root)
         val sidePanel = findViewById<View>(R.id.sidePanel)
@@ -642,6 +643,48 @@ class MainActivity : AppCompatActivity() {
         thumbnailAdapter?.currentPage = range.first
         if (outlineLoaded) outlineAdapter.showCurrentPage(range.first)
         updateBookmarkButton()
+    }
+
+    // --- Taps and links ----------------------------------------------------------------------
+
+    private fun onPageTap(x: Float, y: Float) {
+        if (textSelection.isActive) {
+            textSelection.clear()
+            return
+        }
+        val (view, local) = pages.pageViewAt(x, y) ?: return
+        val structure = shownReady?.structure ?: return
+        val page = view.page
+        lifecycleScope.launch {
+            val links = try {
+                structure.links(page)
+            } catch (e: Exception) {
+                emptyList()
+            }
+            val link = Links.hit(links, local.x / view.scale, local.y / view.scale) ?: return@launch
+            link.targetPage?.let { goToPage(it) }
+            link.uri?.let(::confirmOpenLink)
+        }
+    }
+
+    private fun confirmOpenLink(rawUri: String) {
+        val uri = Links.normalize(rawUri)
+        if (!Links.isSafeExternal(uri)) {
+            Toast.makeText(this, R.string.link_blocked, Toast.LENGTH_LONG).show()
+            return
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.open_link_title)
+            .setMessage(uri)
+            .setPositiveButton(R.string.open_link) { _, _ ->
+                try {
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri)).addCategory(Intent.CATEGORY_BROWSABLE))
+                } catch (e: android.content.ActivityNotFoundException) {
+                    Toast.makeText(this, R.string.no_app_for_link, Toast.LENGTH_LONG).show()
+                }
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
     }
 
     // --- Search ----------------------------------------------------------------------------

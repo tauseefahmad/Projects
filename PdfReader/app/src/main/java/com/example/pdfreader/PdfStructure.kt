@@ -4,6 +4,13 @@ import android.content.Context
 import android.net.Uri
 import android.util.LruCache
 import com.example.pdfreader.core.OutlineNode
+import com.example.pdfreader.core.PageLink
+import com.tom_roush.pdfbox.pdmodel.interactive.action.PDActionGoTo
+import com.tom_roush.pdfbox.pdmodel.interactive.action.PDActionURI
+import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink
+import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.destination.PDDestination
+import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.destination.PDNamedDestination
+import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.destination.PDPageDestination
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.io.MemoryUsageSetting
 import com.tom_roush.pdfbox.pdmodel.PDDocument
@@ -31,6 +38,7 @@ class PdfStructure(private val context: Context, private val uri: Uri) : Closeab
     // Text of every page searched so far (small), and full text+positions for a few recent pages.
     private val textCache = HashMap<Int, String>()
     private val positionCache = LruCache<Int, PageText>(POSITION_CACHE_PAGES)
+    private val linkCache = HashMap<Int, List<PageLink>>()
 
     private suspend fun <T> withDocument(block: (PDDocument) -> T): T = withContext(Dispatchers.IO) {
         mutex.withLock {
@@ -79,6 +87,43 @@ class PdfStructure(private val context: Context, private val uri: Uri) : Closeab
             positionCache.put(page, it)
             synchronized(textCache) { textCache[page] = it.text }
         }
+    }
+
+    /** Link areas on a page: internal (to a page) and external (URLs). */
+    suspend fun links(page: Int): List<PageLink> {
+        synchronized(linkCache) { linkCache[page] }?.let { return it }
+        return withDocument { doc ->
+            if (page !in 0 until doc.numberOfPages) return@withDocument emptyList()
+            val pdPage = doc.getPage(page)
+            val crop = pdPage.cropBox
+            pdPage.annotations.filterIsInstance<PDAnnotationLink>().mapNotNull { link ->
+                val rect = link.rectangle ?: return@mapNotNull null
+                // PDF space has its origin bottom-left; flip to top-left relative to the crop box.
+                val left = rect.lowerLeftX - crop.lowerLeftX
+                val right = rect.upperRightX - crop.lowerLeftX
+                val top = crop.upperRightY - rect.upperRightY
+                val bottom = crop.upperRightY - rect.lowerLeftY
+                val action = link.action
+                when {
+                    action is PDActionURI -> action.uri?.let { PageLink(left, top, right, bottom, uri = it) }
+                    else -> {
+                        val destination = (action as? PDActionGoTo)?.destination ?: runCatching { link.destination }.getOrNull()
+                        resolvePage(doc, destination)?.let { PageLink(left, top, right, bottom, targetPage = it) }
+                    }
+                }
+            }
+        }.also { synchronized(linkCache) { linkCache[page] = it } }
+    }
+
+    private fun resolvePage(doc: PDDocument, destination: PDDestination?): Int? {
+        val pageDestination = when (destination) {
+            is PDPageDestination -> destination
+            is PDNamedDestination -> runCatching { doc.documentCatalog.findNamedDestinationPage(destination) }.getOrNull()
+            else -> null
+        } ?: return null
+        pageDestination.page?.let { page -> return doc.pages.indexOf(page).takeIf { it >= 0 } }
+        // Some files (remote go-to style) store a page number instead of a page reference.
+        return pageDestination.pageNumber.takeIf { it in 0 until doc.numberOfPages }
     }
 
     private fun readChildren(doc: PDDocument, parent: PDOutlineNode, depth: Int): List<OutlineNode> {
