@@ -8,6 +8,7 @@ import android.text.InputType
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageButton
@@ -136,6 +137,10 @@ class MainActivity : AppCompatActivity() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) = updatePageLabel()
         })
         pages.onTouchStart = { explicitItem = null }
+        // The list holds keyboard focus so page keys reach dispatchKeyEvent. Blocking its
+        // children from focus stops Android from consuming the first key press to move focus
+        // when leaving touch mode.
+        pages.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -349,6 +354,7 @@ class MainActivity : AppCompatActivity() {
             fastScroll.isVisible = false
         } else {
             applyLayout(document, viewModel.currentPage)
+            pages.requestFocus()
         }
     }
 

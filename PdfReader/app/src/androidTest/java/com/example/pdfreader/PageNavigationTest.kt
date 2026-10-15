@@ -123,12 +123,22 @@ class PageNavigationTest {
 
     @Test
     fun fastScrollHandleJumpsThroughDocument() {
-        openPdf(30).use {
+        openPdf(30).use { scenario ->
             waitForPageLabel("1 / 30")
             onView(withId(R.id.fastScroll)).perform(
                 GeneralSwipeAction(Swipe.SLOW, fastScrollPoint(0f), fastScrollPoint(1f), Press.FINGER)
             )
-            waitForPageLabel("30 / 30")
+            waitForPageLabel("30 / 30") {
+                var info = ""
+                scenario.onActivity { activity ->
+                    val handle = activity.findViewById<FastScrollHandle>(R.id.fastScroll)
+                    val location = IntArray(2).also(handle::getLocationOnScreen)
+                    info = "handle: visible=${handle.isShown} pages=${handle.pageCount} fraction=${handle.fraction} " +
+                        "dragging=${handle.dragging} at=${location.toList()} size=${handle.width}x${handle.height} " +
+                        "padTop=${handle.paddingTop} density=${handle.resources.displayMetrics.density}"
+                }
+                info
+            }
         }
     }
 

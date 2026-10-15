@@ -31,6 +31,7 @@
             android:background="@color/reader_background"
             android:clipToPadding="false"
             android:focusable="true"
+            android:focusableInTouchMode="true"
             android:focusedByDefault="true"
             android:paddingTop="4dp"
             android:paddingBottom="4dp"

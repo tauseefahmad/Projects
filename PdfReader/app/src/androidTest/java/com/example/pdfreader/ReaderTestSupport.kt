@@ -3,6 +3,7 @@ package com.example.pdfreader
 import android.content.Context
 import android.content.Intent
 import android.view.View
+import android.widget.TextView
 import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.action.CoordinatesProvider
@@ -43,8 +44,23 @@ object ReaderTestSupport {
         }
     }
 
-    fun waitForPageLabel(text: String) = waitFor {
-        onView(withId(R.id.pageLabel)).check(matches(withText(text)))
+    /** Current text of the page label ("3 / 10"). */
+    fun pageLabelText(): String {
+        var text = ""
+        onView(withId(R.id.pageLabel)).check { view, _ -> text = (view as TextView).text.toString() }
+        return text
+    }
+
+    fun waitForPageLabel(expected: String, timeoutMs: Long = 10_000, diagnostics: () -> String = { "" }) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (true) {
+            val actual = pageLabelText()
+            if (actual == expected) return
+            if (System.currentTimeMillis() > deadline) {
+                throw AssertionError("Page label was \"$actual\", expected \"$expected\". ${diagnostics()}")
+            }
+            Thread.sleep(100)
+        }
     }
 
     /** A point on the fast-scroll thumb track, 0 = top, 1 = bottom. */
