@@ -170,7 +170,11 @@ object TestForms {
     }
 
     fun values(file: File): Map<String, String> = PDDocument.load(file).use { doc ->
-        doc.documentCatalog.acroForm?.fieldTree?.associate { it.fullyQualifiedName to it.valueAsString.orEmpty() }.orEmpty()
+        doc.documentCatalog.acroForm?.fieldTree?.associate { field ->
+            // Choices report a list ("[Germany]") as their string value.
+            val value = if (field is com.tom_roush.pdfbox.pdmodel.interactive.form.PDChoice) field.value.firstOrNull() else field.valueAsString
+            field.fullyQualifiedName to value.orEmpty()
+        }.orEmpty()
     }
 }
 
@@ -307,7 +311,8 @@ class FormFillTest {
                 .respondWith(android.app.Instrumentation.ActivityResult(android.app.Activity.RESULT_OK, android.content.Intent().setData(Uri.fromFile(output))))
             open("flatten-form.pdf").use { scenario ->
                 tapField(scenario, TestForms.email)
-                onView(withId(R.id.formInput)).perform(replaceText("flat@example.de"))
+                waitFor { onView(withId(R.id.formInput)).check(matches(isDisplayed())) }
+            onView(withId(R.id.formInput)).perform(replaceText("flat@example.de"))
                 onView(withId(R.id.formDone)).perform(click())
                 waitFor { assertEquals("flat@example.de", changed(scenario)["Email"]) }
                 ReaderTestSupport.menu(R.string.form_menu, R.string.save_flattened_copy)
@@ -333,6 +338,7 @@ class FormFillTest {
             waitForPageLabel("1 / 1")
             waitFor { scenario.onActivity { assertTrue(it.findViewById<ZoomableRecyclerView>(R.id.pages).pageViewFor(0)?.pageRotation != null) } }
             tapField(scenario, TestForms.vorname)
+            waitFor { onView(withId(R.id.formInput)).check(matches(isDisplayed())) }
             onView(withId(R.id.formInput)).perform(replaceText("Draft"))
             onView(withId(R.id.formDone)).perform(click())
             waitFor { assertEquals("Draft", changed(scenario)["Vorname"]) }

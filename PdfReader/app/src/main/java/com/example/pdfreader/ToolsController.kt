@@ -47,7 +47,13 @@ class ToolsController(
     private val openResult: (Uri, String) -> Unit,
     private val reloadCurrent: () -> Unit,
 ) {
-    data class CurrentDocument(val uri: Uri, val contentUri: Uri, val name: String, val canOverwrite: Boolean, val pageCount: Int)
+    data class CurrentDocument(
+        val uri: Uri, val contentUri: Uri, val name: String, val canOverwrite: Boolean, val pageCount: Int,
+        /** The file itself is encrypted (what is shown is a decrypted private copy). */
+        val isEncrypted: Boolean = false,
+        /** The original file may be replaced (for encrypted files [canOverwrite] is false). */
+        val canWriteOriginal: Boolean = canOverwrite,
+    )
 
     private val context get() = activity
 
@@ -340,10 +346,148 @@ class ToolsController(
             .show()
     }
 
+    // --- Security (phase 6) -----------------------------------------------------------------
+
+    /** Adds an open password and/or restricts printing, copying and editing (AES-256). */
+    fun showProtect() {
+        val doc = current() ?: return
+        val password = passwordInput(R.id.protect_password_input, R.string.protect_open_password)
+        val confirm = passwordInput(R.id.protect_confirm_input, R.string.protect_confirm_password)
+        val restrict = android.widget.CheckBox(context).apply { id = R.id.protect_restrict_check; setText(R.string.protect_restrict) }
+        val owner = passwordInput(R.id.protect_owner_input, R.string.protect_owner_password)
+        val allowPrint = android.widget.CheckBox(context).apply { setText(R.string.protect_allow_print) }
+        val allowCopy = android.widget.CheckBox(context).apply { setText(R.string.protect_allow_copy) }
+        val allowEdit = android.widget.CheckBox(context).apply { setText(R.string.protect_allow_edit) }
+        val restrictions = listOf(owner, allowPrint, allowCopy, allowEdit)
+        fun update() = restrictions.forEach { it.visibility = if (restrict.isChecked) View.VISIBLE else View.GONE }
+        restrict.setOnCheckedChangeListener { _, _ -> update() }
+        update()
+        val content = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(TextView(context).apply { setText(R.string.protect_message) })
+            listOf(password, confirm, restrict).forEach(::addView)
+            restrictions.forEach(::addView)
+        }
+        val dialog = MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.protect_title)
+            .setView(ScrollView(context).apply { addView(padded(content)) })
+            .setPositiveButton(R.string.protect_action, null)
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+        dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val open = password.text.toString()
+            if (open != confirm.text.toString()) {
+                confirm.error = context.getString(R.string.protect_mismatch)
+                return@setOnClickListener
+            }
+            if (open.isEmpty() && !restrict.isChecked) {
+                password.error = context.getString(R.string.protect_need_password)
+                return@setOnClickListener
+            }
+            val permissions = if (restrict.isChecked) Permissions(allowPrint.isChecked, allowCopy.isChecked, allowEdit.isChecked) else Permissions()
+            val ownerPassword = if (restrict.isChecked) owner.text.toString() else ""
+            dialog.dismiss()
+            modify(doc, overwrite = doc.canWriteOriginal) { output ->
+                SecurityTools.load(context, doc.contentUri).use { pdf ->
+                    SecurityTools.protect(pdf, open, ownerPassword, permissions)
+                    pdf.save(output)
+                }
+            }
+        }
+    }
+
+    /** Removes the password and restrictions, given the password. */
+    fun showRemovePassword() {
+        val doc = current() ?: return
+        val password = passwordInput(R.id.unprotect_password_input, R.string.unprotect_password)
+        val dialog = MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.unprotect_title)
+            .setMessage(R.string.unprotect_message)
+            .setView(padded(password))
+            .setPositiveButton(R.string.unprotect_action, null)
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+        dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val text = password.text.toString()
+            activity.lifecycleScope.launch {
+                val file = tempFile()
+                val error = withContext(Dispatchers.IO) {
+                    try {
+                        file.outputStream().use { SecurityTools.removePassword(context, doc.uri, text, it) }
+                        null
+                    } catch (e: com.tom_roush.pdfbox.pdmodel.encryption.InvalidPasswordException) {
+                        R.string.password_wrong
+                    } catch (e: SecurityTools.NotAllowedException) {
+                        R.string.unprotect_need_owner
+                    } catch (e: Exception) {
+                        R.string.tool_failed
+                    }
+                }
+                if (error != null) {
+                    file.delete()
+                    password.error = context.getString(error)
+                    return@launch
+                }
+                dialog.dismiss()
+                modify(doc, overwrite = doc.canWriteOriginal) { output -> file.inputStream().use { it.copyTo(output) }; file.delete() }
+            }
+        }
+    }
+
+    /** Shows metadata, attachments, scripts and layers, and removes what the user picks. */
+    fun showHiddenData() {
+        val doc = current() ?: return
+        activity.lifecycleScope.launch {
+            val data = try {
+                withContext(Dispatchers.IO) { SecurityTools.load(context, doc.contentUri).use { SecurityTools.inspect(it) } }
+            } catch (e: Exception) {
+                Toast.makeText(context, R.string.tool_failed, Toast.LENGTH_LONG).show()
+                return@launch
+            }
+            val content = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+            fun line(text: String) = content.addView(TextView(context).apply { this.text = text; setPadding(0, 4, 0, 4) })
+            fun check(label: String, present: Boolean) = android.widget.CheckBox(context).apply {
+                text = label
+                isChecked = present
+                isEnabled = present
+                content.addView(this)
+            }
+            if (data.info.isEmpty() && !data.hasXmpMetadata) line(context.getString(R.string.hidden_no_metadata))
+            for ((key, value) in data.info) line("$key: $value")
+            val metadata = check(context.getString(R.string.hidden_metadata), data.info.isNotEmpty() || data.hasXmpMetadata)
+            val files = check(context.resources.getQuantityString(R.plurals.hidden_files, data.embeddedFiles, data.embeddedFiles), data.embeddedFiles > 0)
+            val scripts = check(context.resources.getQuantityString(R.plurals.hidden_scripts, data.scripts, data.scripts), data.scripts > 0)
+            if (data.layers > 0) line(context.getString(R.string.hidden_layers, data.layers, data.hiddenLayers))
+            MaterialAlertDialogBuilder(context)
+                .setTitle(R.string.hidden_title)
+                .setView(ScrollView(context).apply { addView(padded(content)) })
+                .setPositiveButton(R.string.hidden_remove) { _, _ ->
+                    val what = HiddenDataRemoval(metadata.isChecked, files.isChecked, scripts.isChecked)
+                    if (what == HiddenDataRemoval(false, false, false)) return@setPositiveButton
+                    modify(doc) { output ->
+                        SecurityTools.load(context, doc.contentUri).use { pdf ->
+                            SecurityTools.removeHiddenData(pdf, what)
+                            if (pdf.isEncrypted) pdf.isAllSecurityToBeRemoved = true
+                            pdf.save(output)
+                        }
+                    }
+                }
+                .setNegativeButton(R.string.cancel, null)
+                .show()
+        }
+    }
+
+    private fun passwordInput(id: Int, hint: Int) = EditText(context).apply {
+        this.id = id
+        setHint(hint)
+        isSingleLine = true
+        inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+    }
+
     // --- Saving results ---------------------------------------------------------------------
 
     /** Runs [write] into a temp file, then saves it in place (and reloads) or as a copy. */
-    private fun modify(doc: CurrentDocument, write: (OutputStream) -> Unit) {
+    private fun modify(doc: CurrentDocument, overwrite: Boolean = doc.canOverwrite, write: (OutputStream) -> Unit) {
         activity.lifecycleScope.launch {
             val file = try {
                 withContext(Dispatchers.IO) { tempFile().also { f -> f.outputStream().use(write) } }
@@ -351,7 +495,7 @@ class ToolsController(
                 Toast.makeText(context, R.string.tool_failed, Toast.LENGTH_LONG).show()
                 return@launch
             }
-            if (doc.canOverwrite) {
+            if (overwrite) {
                 try {
                     copyToUri(file, doc.uri)
                     file.delete()

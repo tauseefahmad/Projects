@@ -50,6 +50,10 @@
             <item android:id="@+id/tool_resize" android:title="@string/resize_title" />
             <item android:id="@+id/tool_stamp" android:title="@string/stamp_title" />
             <item android:id="@+id/tool_watermark" android:title="@string/watermark_title" />
+            <item android:id="@+id/tool_redact" android:title="@string/tool_redact" />
+            <item android:id="@+id/tool_protect" android:title="@string/protect_title" />
+            <item android:id="@+id/tool_unprotect" android:title="@string/unprotect_title" android:visible="false" />
+            <item android:id="@+id/tool_hidden_data" android:title="@string/hidden_title" />
         </menu>
     </item>
     <item android:id="@+id/action_document" android:title="@string/document_menu" app:showAsAction="never">
@@ -58,6 +62,7 @@
             <item android:id="@+id/action_print" android:title="@string/print" />
             <item android:id="@+id/action_save_copy" android:title="@string/save_copy" />
             <item android:id="@+id/action_properties" android:title="@string/properties" />
+            <item android:id="@+id/action_privacy" android:title="@string/privacy_title" />
         </menu>
     </item>
     <item android:id="@+id/action_display" android:title="@string/display_menu" app:showAsAction="never">
@@ -72,6 +77,7 @@
                 <item android:id="@+id/action_dark_pages" android:checkable="true" android:title="@string/dark_pages" />
                 <item android:id="@+id/action_keep_screen_on" android:checkable="true" android:title="@string/keep_screen_on" />
                 <item android:id="@+id/action_volume_keys" android:checkable="true" android:title="@string/volume_keys" />
+                <item android:id="@+id/action_offline_only" android:checkable="true" android:title="@string/offline_only" />
             </group>
         </menu>
     </item>

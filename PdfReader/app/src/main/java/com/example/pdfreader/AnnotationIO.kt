@@ -193,7 +193,7 @@ object AnnotationIO {
      */
     fun write(doc: PDDocument, annotations: List<Annotation>) {
         // New form fields are written by FormIO.create, as real fields.
-        val byPage = annotations.filter { it !is Annotation.Field }.groupBy { it.page }
+        val byPage = annotations.filter { it !is Annotation.Field && it !is Annotation.Redaction }.groupBy { it.page }
         doc.pages.forEachIndexed { index, page ->
             val kept = page.annotations.filterNot(::isManaged).toMutableList()
             // Pop-ups of rewritten annotations would dangle; keep only those of untouched ones.
@@ -213,11 +213,39 @@ object AnnotationIO {
 
     /** Draws every annotation's appearance into the page content and removes the annotations. */
     fun flatten(doc: PDDocument) {
-        for (page in doc.pages) {
+        for (page in doc.pages) flattenPage(doc, page, widgets = false)
+    }
+
+    /**
+     * Draws [redactions] as black boxes into their pages, after drawing in every annotation
+     * and form field on those pages (so that the page, turned into a picture afterwards,
+     * still shows them). Returns the redacted pages.
+     */
+    fun burnRedactions(doc: PDDocument, redactions: List<Annotation.Redaction>): Set<Int> {
+        val pages = redactions.map { it.page }.filter { it in 0 until doc.numberOfPages }.toSet()
+        for (index in pages) {
+            val page = doc.getPage(index)
+            flattenPage(doc, page, widgets = true)
+            val space = Space(page)
+            PDPageContentStream(doc, page, PDPageContentStream.AppendMode.APPEND, true, true).use { s ->
+                s.setNonStrokingColor(0f, 0f, 0f)
+                for (r in redactions.filter { it.page == index }) {
+                    val rect = space.rect(r.box)
+                    s.addRect(rect.lowerLeftX, rect.lowerLeftY, rect.width, rect.height)
+                }
+                s.fill()
+            }
+        }
+        return pages
+    }
+
+    /** Draws the annotations of [page] into its content; links (and widgets unless [widgets]) stay. */
+    private fun flattenPage(doc: PDDocument, page: PDPage, widgets: Boolean) {
+        run {
             val remaining = mutableListOf<PDAnnotation>()
             for (annotation in page.annotations) {
                 val appearance = annotation.normalAppearanceStream
-                if (annotation is PDAnnotationLink || annotation is PDAnnotationWidget || appearance == null || annotation.isHidden) {
+                if (annotation is PDAnnotationLink || (!widgets && annotation is PDAnnotationWidget) || appearance == null || annotation.isHidden) {
                     if (annotation !is PDAnnotationPopup) remaining += annotation
                     continue
                 }
@@ -308,6 +336,7 @@ object AnnotationIO {
                 appearance = appearance(doc, rectangle) { s -> s.drawImage(image, rectangle.lowerLeftX, rectangle.lowerLeftY, rectangle.width, rectangle.height) }
             }
             is Annotation.Field -> throw IllegalArgumentException("Form fields are written by FormIO")
+            is Annotation.Redaction -> throw IllegalArgumentException("Redactions are applied, not stored")
         }
         // Common entries every viewer understands.
         annotation.annotationName = a.id

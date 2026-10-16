@@ -172,7 +172,10 @@ class MainActivity : AppCompatActivity() {
         activity = this,
         current = {
             shownReady?.let {
-                ToolsController.CurrentDocument(it.uri, it.contentUri, it.name, it.contentUri == it.uri && canWrite(it.uri), it.document.pageCount)
+                ToolsController.CurrentDocument(
+                    it.uri, it.contentUri, it.name, it.contentUri == it.uri && canWrite(it.uri), it.document.pageCount,
+                    isEncrypted = it.contentUri != it.uri, canWriteOriginal = canWrite(it.uri),
+                )
             }
         },
         openResult = { uri, name -> viewModel.open(uri, name) },
@@ -555,6 +558,15 @@ class MainActivity : AppCompatActivity() {
                 R.id.tool_resize -> tools.showResize()
                 R.id.tool_stamp -> tools.showStamp()
                 R.id.tool_watermark -> tools.showWatermark()
+                R.id.tool_redact -> annotate.start(AnnotTool.REDACT)
+                R.id.tool_protect -> tools.showProtect()
+                R.id.tool_unprotect -> tools.showRemovePassword()
+                R.id.tool_hidden_data -> tools.showHiddenData()
+                R.id.action_privacy -> showPrivacy()
+                R.id.action_offline_only -> {
+                    settings.offlineOnly = !settings.offlineOnly
+                    syncMenuChecks()
+                }
                 R.id.action_full_screen -> {
                     if (annotate.isActive) annotate.finish()
                     if (!annotate.isActive) setFullScreen(true)
@@ -631,6 +643,7 @@ class MainActivity : AppCompatActivity() {
         ).isChecked = true
         menu.findItem(R.id.action_volume_keys).isChecked = settings.volumeKeysTurnPages
         menu.findItem(R.id.action_keep_screen_on).isChecked = settings.keepScreenOn
+        menu.findItem(R.id.action_offline_only).isChecked = settings.offlineOnly
     }
 
     private fun setAppTheme(theme: AppTheme) {
@@ -682,6 +695,7 @@ class MainActivity : AppCompatActivity() {
         }
         toolbar.menu.findItem(R.id.form_highlight).isChecked = ProfileStore(this).highlightFields
         toolbar.menu.findItem(R.id.action_close).isVisible = ready != null
+        toolbar.menu.findItem(R.id.tool_unprotect).isVisible = ready != null && ready.contentUri != ready.uri
         toolbar.title = ready?.name ?: getString(R.string.app_name)
         if (ready != null) {
             toolbar.setNavigationIcon(R.drawable.ic_side_panel)
@@ -758,7 +772,19 @@ class MainActivity : AppCompatActivity() {
         input.requestFocus()
     }
 
+    private fun showPrivacy() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.privacy_title)
+            .setMessage(getString(R.string.privacy_message, getString(if (settings.offlineOnly) R.string.privacy_on else R.string.privacy_off)))
+            .setPositiveButton(R.string.ok, null)
+            .show()
+    }
+
     private fun showOpenUrlDialog() {
+        if (settings.offlineOnly) {
+            Toast.makeText(this, R.string.offline_blocked, Toast.LENGTH_LONG).show()
+            return
+        }
         val input = EditText(this).apply {
             id = R.id.url_input
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI

@@ -51,6 +51,11 @@ class ReaderSettings(context: Context) {
         get() = prefs.getBoolean(KEY_DARK_PAGES, false)
         set(value) = prefs.edit().putBoolean(KEY_DARK_PAGES, value).apply()
 
+    /** Blocks the features that use the internet (opening a URL). */
+    var offlineOnly: Boolean
+        get() = prefs.getBoolean(KEY_OFFLINE_ONLY, false)
+        set(value) = prefs.edit().putBoolean(KEY_OFFLINE_ONLY, value).apply()
+
     private inline fun <reified T : Enum<T>> enumValue(name: String?, default: T): T =
         enumValues<T>().firstOrNull { it.name == name } ?: default
 
@@ -63,5 +68,6 @@ class ReaderSettings(context: Context) {
         private const val KEY_FIT_MODE = "fit_mode_"
         private const val KEY_THEME = "theme"
         private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
+        private const val KEY_OFFLINE_ONLY = "offline_only"
     }
 }

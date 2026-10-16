@@ -23,6 +23,7 @@ object AnnotationTransform {
             is Annotation.Stamp -> a.copy(box = box(a.box))
             is Annotation.Image -> a.copy(box = box(a.box))
             is Annotation.Field -> a.copy(box = box(a.box))
+            is Annotation.Redaction -> a.copy(box = box(a.box))
             is Annotation.Shape -> a.copy(points = a.points.map(::pt))
             is Annotation.Ink -> a.copy(strokes = a.strokes.map { it.map(::pt) })
             else -> a
@@ -43,6 +44,7 @@ object AnnotationTransform {
             is Annotation.Stamp -> a.copy(id = id, page = page)
             is Annotation.Image -> a.copy(id = id, page = page)
             is Annotation.Field -> a.copy(id = id, page = page)
+            is Annotation.Redaction -> a.copy(id = id, page = page)
         }
         val b = copy.bounds
         val dx = if (b.right > pageWidth) maxOf(pageWidth - b.right, -b.left) else 0f

@@ -152,16 +152,29 @@ class AnnotationSession(
      */
     fun writeTo(source: Uri, output: OutputStream, flatten: Boolean) {
         PDFBoxResourceLoader.init(context.applicationContext)
-        val input = context.contentResolver.openInputStream(source) ?: throw java.io.IOException("Cannot read $source")
-        input.use { PDDocument.load(it, MemoryUsageSetting.setupTempFileOnly()) }.use { doc ->
-            FormIO.create(doc, history.items.filterIsInstance<Annotation.Field>())
-            FormIO.write(doc, formValues, flatten)
-            AnnotationIO.write(doc, history.items)
-            if (flatten) AnnotationIO.flatten(doc)
-            if (doc.isEncrypted) doc.isAllSecurityToBeRemoved = true
-            doc.save(output)
+        val redactions = history.items.filterIsInstance<Annotation.Redaction>()
+        // Redacted pages are finished in a second pass, which needs the result as a file.
+        val temp = if (redactions.isEmpty()) null else File(context.cacheDir, "redact-${UUID.randomUUID()}.pdf")
+        try {
+            var redactedPages = emptySet<Int>()
+            val input = context.contentResolver.openInputStream(source) ?: throw java.io.IOException("Cannot read $source")
+            input.use { PDDocument.load(it, MemoryUsageSetting.setupTempFileOnly()) }.use { doc ->
+                FormIO.create(doc, history.items.filterIsInstance<Annotation.Field>())
+                FormIO.write(doc, formValues, flatten)
+                AnnotationIO.write(doc, history.items)
+                if (flatten) AnnotationIO.flatten(doc)
+                if (redactions.isNotEmpty()) redactedPages = AnnotationIO.burnRedactions(doc, redactions)
+                if (doc.isEncrypted) doc.isAllSecurityToBeRemoved = true
+                if (temp == null) doc.save(output) else temp.outputStream().use { doc.save(it) }
+            }
+            if (temp != null) SecurityTools.rasterizePages(context, temp, redactedPages, output)
+        } finally {
+            temp?.delete()
         }
     }
+
+    /** Areas waiting to be redacted when the document is saved. */
+    val pendingRedactions: Int get() = history.items.count { it is Annotation.Redaction }
 
     /** After a successful save: the draft is no longer needed. */
     fun onSaved() {

@@ -55,6 +55,7 @@ object AnnotationPainter {
             is Annotation.Stamp -> drawStamp(canvas, a)
             is Annotation.Image -> drawImage(canvas, a)
             is Annotation.Field -> drawField(canvas, a)
+            is Annotation.Redaction -> drawRedaction(canvas, a)
         }
     }
 
@@ -241,6 +242,16 @@ object AnnotationPainter {
         val x = if (a.kind == FieldKind.CHECKBOX || a.kind == FieldKind.RADIO) b.left + (b.width - text.measureText(label)) / 2 else b.left + 2f
         canvas.drawText(label, x, b.top + (b.height + text.textSize * 0.7f) / 2, text)
         canvas.restore()
+    }
+
+    /** A pending redaction: a dark, see-through box with a red frame until it is applied. */
+    private fun drawRedaction(canvas: Canvas, a: Annotation.Redaction) {
+        rect.set(a.box.left, a.box.top, a.box.right, a.box.bottom)
+        fill.color = 0x99000000.toInt()
+        canvas.drawRect(rect, fill)
+        stroke.color = 0xFFD32F2F.toInt()
+        stroke.strokeWidth = 1f
+        canvas.drawRect(rect, stroke)
     }
 
     private const val FIELD_FILL = 0x334FC3F7

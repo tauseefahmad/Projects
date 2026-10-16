@@ -156,6 +156,23 @@ sealed class Annotation {
     }
 
     /**
+     * An area marked for redaction. When the document is saved everything under it (text,
+     * images, drawings) is removed for good and the area is blacked out.
+     */
+    @Serializable
+    @SerialName("redaction")
+    data class Redaction(
+        override val id: String, override val page: Int, override val color: Int,
+        override val author: String, override val modified: Long, override val note: String = "",
+        val box: Box,
+    ) : Annotation() {
+        override val bounds get() = box
+        override fun withColor(color: Int) = this
+        override fun withNote(note: String) = copy(note = note)
+        override fun moved(dx: Float, dy: Float) = copy(box = box.offset(dx, dy))
+    }
+
+    /**
      * A form field being added with the form builder. It becomes a real interactive field
      * (AcroForm) when the document is saved; until then it is edited like an annotation.
      */
@@ -189,6 +206,7 @@ fun Annotation.typeName(): String = when (this) {
     is Annotation.Stamp -> "Stamp"
     is Annotation.Image -> "Image"
     is Annotation.Field -> "Form field"
+    is Annotation.Redaction -> "Redaction"
 }
 
 /**

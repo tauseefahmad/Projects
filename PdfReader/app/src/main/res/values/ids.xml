@@ -17,4 +17,10 @@
     <item name="field_required_check" type="id" />
     <item name="field_kind_group" type="id" />
     <item name="copy_pages_input" type="id" />
+    <item name="redact_terms_input" type="id" />
+    <item name="protect_password_input" type="id" />
+    <item name="protect_confirm_input" type="id" />
+    <item name="protect_restrict_check" type="id" />
+    <item name="protect_owner_input" type="id" />
+    <item name="unprotect_password_input" type="id" />
 </resources>

@@ -332,4 +332,58 @@
     <string name="draw_field_hint">Drag to draw a field, or tap to place one</string>
     <string name="fill_and_sign">Fill &amp; sign</string>
     <string name="build_form">Create form fields</string>
+    <string name="tool_redact">Redact</string>
+    <string name="find_and_redact">Find and redact…</string>
+    <string name="redact_ibans">IBANs</string>
+    <string name="redact_emails">Email addresses</string>
+    <string name="redact_phones">Phone numbers</string>
+    <string name="redact_terms_hint">Words or names, one per line</string>
+    <string name="redact_mark">Mark</string>
+    <string name="redact_nothing_found">Nothing found to redact</string>
+    <plurals name="redact_marked">
+        <item quantity="one">Marked %1$d area. Check it, then save to redact.</item>
+        <item quantity="other">Marked %1$d areas. Check them, then save to redact.</item>
+    </plurals>
+    <string name="redact_confirm_title">Redact for good?</string>
+    <plurals name="redact_confirm_message">
+        <item quantity="one">Everything under %1$d marked area is removed and can’t be recovered. Pages with redactions become images, so their text can no longer be selected or searched.</item>
+        <item quantity="other">Everything under %1$d marked areas is removed and can’t be recovered. Pages with redactions become images, so their text can no longer be selected or searched.</item>
+    </plurals>
+    <string name="redact_and_save">Redact and save</string>
+    <string name="protect_title">Password protection…</string>
+    <string name="protect_message">Encrypted with AES-256. Without the password the file can’t be opened, so keep it safe.</string>
+    <string name="protect_open_password">Password to open (optional)</string>
+    <string name="protect_confirm_password">Repeat password</string>
+    <string name="protect_restrict">Restrict printing, copying and editing</string>
+    <string name="protect_owner_password">Permissions password (to lift restrictions)</string>
+    <string name="protect_allow_print">Allow printing</string>
+    <string name="protect_allow_copy">Allow copying text</string>
+    <string name="protect_allow_edit">Allow editing and comments</string>
+    <string name="protect_action">Protect</string>
+    <string name="protect_mismatch">The passwords don’t match</string>
+    <string name="protect_need_password">Enter a password or choose restrictions</string>
+    <string name="unprotect_title">Remove password…</string>
+    <string name="unprotect_message">Enter the file’s password. Restricted files need the permissions password.</string>
+    <string name="unprotect_password">Password</string>
+    <string name="unprotect_action">Remove</string>
+    <string name="unprotect_need_owner">This password opens the file but can’t lift its restrictions. Enter the permissions password.</string>
+    <string name="hidden_title">Remove hidden data…</string>
+    <string name="hidden_no_metadata">No document information</string>
+    <string name="hidden_metadata">Document information and metadata</string>
+    <plurals name="hidden_files">
+        <item quantity="one">%1$d attached file</item>
+        <item quantity="other">%1$d attached files</item>
+    </plurals>
+    <plurals name="hidden_scripts">
+        <item quantity="one">%1$d script</item>
+        <item quantity="other">%1$d scripts</item>
+    </plurals>
+    <string name="hidden_layers">%1$d layers (%2$d hidden). Layers are kept; their content may not be visible.</string>
+    <string name="hidden_remove">Remove</string>
+    <string name="privacy_title">Privacy</string>
+    <string name="privacy_message">Everything this app does — reading, annotating, forms, signatures, page tools, passwords and redaction — runs on this phone. Your files are never uploaded.\n\nThe only feature that uses the internet is Open from URL, which downloads a file you ask for.\n\nOffline only: %1$s</string>
+    <string name="privacy_on">on — Open from URL is blocked</string>
+    <string name="privacy_off">off</string>
+    <string name="offline_only">Offline only</string>
+    <string name="offline_blocked">Turn off “Offline only” in View settings to open files from the internet</string>
 </resources>

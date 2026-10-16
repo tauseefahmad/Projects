@@ -36,6 +36,8 @@ import com.example.pdfreader.core.FormField
 import com.example.pdfreader.core.FormMarks
 import com.example.pdfreader.core.PageRangeException
 import com.example.pdfreader.core.PageRanges
+import com.example.pdfreader.core.Redactions
+import com.example.pdfreader.core.SensitiveKind
 import com.example.pdfreader.core.Geometry
 import com.example.pdfreader.core.MarkupKind
 import com.example.pdfreader.core.PalmRejection
@@ -80,7 +82,8 @@ enum class AnnotTool(val icon: Int, val label: Int) {
     TICK(R.drawable.ic_check, R.string.tool_tick),
     CROSS(R.drawable.ic_close, R.string.tool_cross),
     DATE(R.drawable.ic_calendar, R.string.tool_date),
-    FIELD(R.drawable.ic_form_field, R.string.tool_field);
+    FIELD(R.drawable.ic_form_field, R.string.tool_field),
+    REDACT(R.drawable.ic_redact, R.string.tool_redact);
 
     val markup: MarkupKind?
         get() = when (this) {
@@ -434,7 +437,7 @@ class AnnotateController(
         editTextButton.isVisible = selected is Annotation.FreeText || selected is Annotation.Field
         copyPagesButton.isVisible = selected != null && selected !is Annotation.Markup && (ready?.document?.pageCount ?: 0) > 1
         val color = selected?.color ?: prefs.color(tool)
-        colorButton.isVisible = selected?.let { it !is Annotation.Image && it !is Annotation.Field } ?: (tool !in NO_COLOR_TOOLS)
+        colorButton.isVisible = selected?.let { it !is Annotation.Image && it !is Annotation.Field && it !is Annotation.Redaction } ?: (tool !in NO_COLOR_TOOLS)
         colorSwatch.background = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             setColor(color)
@@ -555,7 +558,7 @@ class AnnotateController(
                 loadMarkupText(view.page)
                 Gesture.MARKUP
             }
-            effective.shape != null -> Gesture.SHAPE
+            effective.shape != null || effective == AnnotTool.REDACT -> Gesture.SHAPE
             effective == AnnotTool.TEXT || effective == AnnotTool.FIELD -> Gesture.TEXT_BOX
             else -> Gesture.PLACE
         }
@@ -588,7 +591,7 @@ class AnnotateController(
                 }
                 previewAnnotation = newInk(points.toList())
             }
-            Gesture.SHAPE -> previewAnnotation = newShape(start, p)
+            Gesture.SHAPE -> previewAnnotation = if (tool == AnnotTool.REDACT) newRedaction(start, p) else newShape(start, p)
             Gesture.MARKUP -> previewAnnotation = newMarkup(start, p)
             Gesture.ERASE -> eraseAt(p, view)
             Gesture.MOVE -> previewAnnotation = original?.moved(p.x - start.x, p.y - start.y)?.also { hidden.add(it.id) }
@@ -619,7 +622,7 @@ class AnnotateController(
                 })
             }
             Gesture.SHAPE -> if (moved) {
-                val shape = newShape(start, current)
+                val shape = if (tool == AnnotTool.REDACT) newRedaction(start, current) else newShape(start, current)
                 if (shape.bounds.width > 3 || shape.bounds.height > 3) session.add(shape)
             }
             Gesture.MARKUP -> {
@@ -713,6 +716,9 @@ class AnnotateController(
             strokes = listOf(stroke), width = prefs.width(t), opacity = if (highlighter) 0.4f else 1f,
         )
     }
+
+    private fun newRedaction(a: Pt, b: Pt) =
+        Annotation.Redaction(AnnotationIO.newId(), gesturePage, 0xFF000000.toInt(), prefs.author, now(), box = AnnotationTransform.boxOf(a, b))
 
     private fun newShape(a: Pt, b: Pt): Annotation.Shape {
         val kind = tool.shape ?: ShapeKind.RECTANGLE
@@ -923,6 +929,71 @@ class AnnotateController(
         session.addAll(copies)
         Toast.makeText(context, context.getString(R.string.copied_to_pages, copies.size), Toast.LENGTH_SHORT).show()
         return copies.size
+    }
+
+    // --- Redaction ----------------------------------------------------------------------------
+
+    /** Marks every match of personal-data patterns or search terms, on every page, for redaction. */
+    fun findAndRedact() {
+        val ready = ready ?: return
+        val kinds = listOf(
+            SensitiveKind.IBAN to R.string.redact_ibans,
+            SensitiveKind.EMAIL to R.string.redact_emails,
+            SensitiveKind.PHONE to R.string.redact_phones,
+        )
+        val boxes = kinds.map { (kind, label) ->
+            android.widget.CheckBox(context).apply {
+                setText(label)
+                tag = kind
+            }
+        }
+        val terms = EditText(context).apply {
+            id = R.id.redact_terms_input
+            setHint(R.string.redact_terms_hint)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
+        }
+        val content = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            boxes.forEach(::addView)
+            addView(terms)
+        }
+        MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.find_and_redact)
+            .setView(padded(content))
+            .setPositiveButton(R.string.redact_mark) { _, _ ->
+                val selected = boxes.filter { it.isChecked }.map { it.tag as SensitiveKind }.toSet()
+                val words = terms.text.toString().split('\n', ',').map { it.trim() }.filter { it.isNotEmpty() }
+                if (selected.isEmpty() && words.isEmpty()) return@setPositiveButton
+                activity.lifecycleScope.launch { markRedactions(ready, selected, words) }
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    /** Adds a redaction over every match; returns how many areas were marked. */
+    suspend fun markRedactions(ready: ReaderState.Ready, kinds: Set<SensitiveKind>, terms: List<String>): Int {
+        val session = session ?: return 0
+        val found = mutableListOf<Annotation>()
+        for (page in 0 until ready.document.pageCount) {
+            val text = try {
+                ready.structure.pageTextWithPositions(page)
+            } catch (e: Exception) {
+                continue
+            }
+            for (range in Redactions.find(text.text, kinds, terms)) {
+                for (r in text.boxesFor(range.first, range.last + 1)) {
+                    found += Annotation.Redaction(AnnotationIO.newId(), page, 0xFF000000.toInt(), prefs.author, now(), box = Box(r.left - 1, r.top - 1, r.right + 1, r.bottom + 1))
+                }
+            }
+        }
+        if (found.isEmpty()) {
+            Toast.makeText(context, R.string.redact_nothing_found, Toast.LENGTH_SHORT).show()
+            return 0
+        }
+        session.addAll(found)
+        if (!isActive) setActive(true)
+        Toast.makeText(context, context.resources.getQuantityString(R.plurals.redact_marked, found.size, found.size), Toast.LENGTH_LONG).show()
+        return found.size
     }
 
     // --- Form builder ---------------------------------------------------------------------------
@@ -1191,6 +1262,7 @@ class AnnotateController(
         is Annotation.Stamp -> AnnotTool.STAMP
         is Annotation.Image -> null
         is Annotation.Field -> AnnotTool.FIELD
+        is Annotation.Redaction -> AnnotTool.REDACT
     }
 
     private fun showWidthPicker() {
@@ -1268,6 +1340,7 @@ class AnnotateController(
                 isChecked = prefs.fingerDrawing
             }
             menu.add(0, 7, 6, R.string.discard_changes).isEnabled = session.hasChanges
+            menu.add(0, 8, 7, R.string.find_and_redact)
             setOnMenuItemClickListener { item ->
                 when (item.itemId) {
                     1 -> save(copy = !canOverwrite(ready), flatten = false)
@@ -1279,6 +1352,7 @@ class AnnotateController(
                         prefs.fingerDrawing = !prefs.fingerDrawing
                         palm.fingerDrawing = prefs.fingerDrawing
                     }
+                    8 -> findAndRedact()
                     7 -> MaterialAlertDialogBuilder(context)
                         .setMessage(R.string.discard_annotations_message)
                         .setPositiveButton(R.string.discard) { _, _ -> session.discardChanges() }
@@ -1297,7 +1371,19 @@ class AnnotateController(
     var confirmSave: (proceed: () -> Unit) -> Unit = { it() }
 
     /** Saves into the file itself, or (with [copy]) into a new file chosen by the user. */
-    fun save(copy: Boolean, flatten: Boolean) = confirmSave { saveNow(copy, flatten) }
+    fun save(copy: Boolean, flatten: Boolean) {
+        val redactions = session?.pendingRedactions ?: 0
+        if (redactions == 0) {
+            confirmSave { saveNow(copy, flatten) }
+            return
+        }
+        MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.redact_confirm_title)
+            .setMessage(context.resources.getQuantityString(R.plurals.redact_confirm_message, redactions, redactions))
+            .setPositiveButton(R.string.redact_and_save) { _, _ -> confirmSave { saveNow(copy, flatten) } }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
 
     private fun saveNow(copy: Boolean, flatten: Boolean) {
         val ready = ready ?: return
@@ -1439,6 +1525,6 @@ class AnnotateController(
         const val MARK_SIZE = 10f
         const val MARK_WIDTH = 1.5f
         const val DATE_SIZE = 11f
-        val NO_COLOR_TOOLS = setOf(AnnotTool.SELECT, AnnotTool.ERASER, AnnotTool.IMAGE, AnnotTool.SIGN, AnnotTool.FIELD)
+        val NO_COLOR_TOOLS = setOf(AnnotTool.SELECT, AnnotTool.ERASER, AnnotTool.IMAGE, AnnotTool.SIGN, AnnotTool.FIELD, AnnotTool.REDACT)
     }
 }

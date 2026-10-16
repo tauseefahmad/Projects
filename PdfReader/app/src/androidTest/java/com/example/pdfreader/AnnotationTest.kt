@@ -331,6 +331,8 @@ class AnnotationTest {
             }
             waitFor { assertEquals(listOf("pdfreader-2"), annotations(scenario).map { it.id }) }
             scenario.onActivity { it.closeSidePanel() }
+            // Wait until the panel has slid away, or the tap lands on it.
+            waitFor { scenario.onActivity { assertFalse(it.findViewById<androidx.drawerlayout.widget.DrawerLayout>(R.id.drawer).isDrawerVisible(androidx.core.view.GravityCompat.START)) } }
             doneAndSave()
             waitFor { assertEquals(listOf("Ink"), storedSubtypes(f)) }
         }
