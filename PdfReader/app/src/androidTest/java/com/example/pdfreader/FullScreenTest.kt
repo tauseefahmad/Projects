@@ -9,7 +9,6 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.pdfreader.ReaderTestSupport.openPdf
 import com.example.pdfreader.ReaderTestSupport.waitFor
-import com.example.pdfreader.ReaderTestSupport.waitForPageLabel
 import com.google.android.material.appbar.MaterialToolbar
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -79,7 +78,7 @@ class FullScreenTest {
     @Test
     fun fullScreenHidesTheBarsAndKeepsTheScreenOn() {
         openPdf(4).use { scenario ->
-            waitForPageLabel("1 / 4")
+            waitFor { assertEquals("1 / 4", label(scenario)) }
             assertFalse(keepsScreenOn(scenario))
             enterFullScreen(scenario)
             assertFalse(navBarShown(scenario))
@@ -90,7 +89,7 @@ class FullScreenTest {
     @Test
     fun tappingTheEdgesTurnsPages() {
         openPdf(4).use { scenario ->
-            waitForPageLabel("1 / 4")
+            waitFor { assertEquals("1 / 4", label(scenario)) }
             enterFullScreen(scenario)
             tapAt(scenario, 0.92f)
             waitFor { assertEquals("2 / 4", label(scenario)) }
@@ -106,7 +105,7 @@ class FullScreenTest {
     @Test
     fun tappingTheMiddleOrBackLeavesFullScreen() {
         openPdf(4).use { scenario ->
-            waitForPageLabel("1 / 4")
+            waitFor { assertEquals("1 / 4", label(scenario)) }
             enterFullScreen(scenario)
             tapAt(scenario, 0.5f)
             waitFor { assertTrue(toolbarShown(scenario)) }
@@ -124,7 +123,7 @@ class FullScreenTest {
     @Test
     fun keepScreenOnSettingWorksOutsideFullScreen() {
         openPdf(2).use { scenario ->
-            waitForPageLabel("1 / 2")
+            waitFor { assertEquals("1 / 2", label(scenario)) }
             ReaderTestSupport.menu(R.string.display_menu, R.string.keep_screen_on)
             waitFor { assertTrue(keepsScreenOn(scenario)) }
         }

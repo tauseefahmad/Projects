@@ -525,7 +525,14 @@ class AnnotateController(
         return true
     }
 
+    private var lastMoveX = Float.NaN
+    private var lastMoveY = Float.NaN
+    private var lastPressure = 1f
+
     override fun onPenMove(x: Float, y: Float, pressure: Float) {
+        lastMoveX = x
+        lastMoveY = y
+        lastPressure = pressure
         val view = gestureView ?: return
         if (!moved && hypot(x - startScreen.x, y - startScreen.y) < TOUCH_SLOP_DP * context.resources.displayMetrics.density) return
         moved = true
@@ -553,6 +560,8 @@ class AnnotateController(
     }
 
     override fun onPenUp(x: Float, y: Float) {
+        // The finger may have moved since the last move event; finish where it lifted.
+        if (gestureView != null && (x != lastMoveX || y != lastMoveY)) onPenMove(x, y, lastPressure)
         val view = gestureView
         val session = session
         val g = gesture
