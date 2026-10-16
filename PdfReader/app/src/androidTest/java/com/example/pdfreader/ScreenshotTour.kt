@@ -68,10 +68,27 @@ class ScreenshotTour {
             log.append("FAIL ").append(name).append(": ").append(t.toString().take(300)).append('\n')
             runCatching { shot("$name-failed") }
         } finally {
-            // Close whatever the step left open.
-            runCatching { Espresso.pressBackUnconditionally() }
-            Thread.sleep(300)
+            closeLeftovers()
         }
+    }
+
+    /** The reader currently on screen; cleanup only touches it. */
+    private var current: ActivityScenario<MainActivity>? = null
+
+    /**
+     * Closes the dialogs, menus and screens a step left open, without leaving the reader:
+     * Back is pressed only while something covers the reader's window.
+     */
+    private fun closeLeftovers() {
+        val scenario = current ?: return
+        repeat(3) {
+            Thread.sleep(300)
+            var covered = false
+            runCatching { scenario.onActivity { covered = !it.hasWindowFocus() } }
+            if (covered) runCatching { Espresso.pressBackUnconditionally() }
+        }
+        runCatching { scenario.onActivity { it.findViewById<androidx.drawerlayout.widget.DrawerLayout>(R.id.drawer).closeDrawers() } }
+        Thread.sleep(300)
     }
 
     private fun menu(scenario: ActivityScenario<MainActivity>, id: Int) =
@@ -91,6 +108,7 @@ class ScreenshotTour {
         ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)).use { shot("start-screen") }
 
         openUri(uri).use { scenario ->
+            current = scenario
             waitForPageLabel("1 / 4")
             shot("reader")
 
@@ -138,6 +156,7 @@ class ScreenshotTour {
         // Forms: a fillable form with the field bar.
         val form = TestForms.create(context, "Application form.pdf")
         openUri(form).use { scenario ->
+            current = scenario
             waitForPageLabel("1 / 1")
             step("form-filling") {
                 waitFor { scenario.onActivity { check(it.findViewById<ZoomableRecyclerView>(R.id.pages).pageViewFor(0)?.pageRotation != null) } }
@@ -152,6 +171,7 @@ class ScreenshotTour {
 
         // German interface.
         openUri(uri).use { scenario ->
+            current = scenario
             waitForPageLabel("1 / 4")
             step("german-interface") {
                 InstrumentationRegistry.getInstrumentation().runOnMainSync { AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("de")) }
@@ -161,6 +181,7 @@ class ScreenshotTour {
             }
             InstrumentationRegistry.getInstrumentation().runOnMainSync { AppCompatDelegate.setApplicationLocales(LocaleListCompat.getEmptyLocaleList()) }
         }
+        current = null
 
         File(context.cacheDir, "tour.txt").writeText(log.toString())
         shell("cp ${File(context.cacheDir, "tour.txt").path} $dir/tour.txt")

@@ -194,6 +194,11 @@ class FormFillTest {
     private fun file(name: String) = File(context.cacheDir, "shared/$name")
 
     private fun tapField(scenario: ActivityScenario<MainActivity>, s: TestForms.Spec) {
+        // Retried: right after opening, the touch can be refused while the window is still settling.
+        waitFor { tapFieldOnce(scenario, s) }
+    }
+
+    private fun tapFieldOnce(scenario: ActivityScenario<MainActivity>, s: TestForms.Spec) {
         var point = FloatArray(2)
         scenario.onActivity { activity ->
             val list = activity.findViewById<ZoomableRecyclerView>(R.id.pages)
