@@ -18,6 +18,7 @@ import com.example.pdfreader.core.Change
 import com.example.pdfreader.core.Compare
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -363,9 +364,13 @@ class DocumentExtrasController(
     }
 
     /** Lists the digital signatures in the document and whether each is intact. */
+    /** The signature check in progress; a second tap while it runs is ignored. */
+    private var signatureCheck: Job? = null
+
     fun showSignatures() {
         val doc = current() ?: return
-        activity.lifecycleScope.launch {
+        if (signatureCheck?.isActive == true) return
+        signatureCheck = activity.lifecycleScope.launch {
             val checks = try {
                 withContext(Dispatchers.IO) {
                     val copy = convert.temp("pdf")

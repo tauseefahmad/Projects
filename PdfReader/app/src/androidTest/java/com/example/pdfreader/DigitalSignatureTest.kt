@@ -79,7 +79,8 @@ class DigitalSignatureTest {
             waitForPageLabel("1 / 1")
             // The signed file is reopened after saving; ask once it is shown again.
             try {
-                waitFor(20_000) {
+                waitFor(45_000) {
+                    // Asking again while a check runs is ignored, so this starts at most one at a time.
                     scenario.onActivity { a -> if (a.extras.dialog?.isShowing != true) a.extras.showSignatures() }
                     onView(withText(containsString("Max Muster"))).inRoot(isDialog()).check(matches(isDisplayed()))
                 }
