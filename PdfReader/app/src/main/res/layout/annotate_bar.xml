@@ -76,6 +76,14 @@
                 android:src="@drawable/ic_edit" />
 
             <ImageButton
+                android:id="@+id/annotCopyPages"
+                android:layout_width="44dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/copy_to_pages"
+                android:src="@drawable/ic_copy_pages" />
+
+            <ImageButton
                 android:id="@+id/annotDelete"
                 android:layout_width="44dp"
                 android:layout_height="48dp"

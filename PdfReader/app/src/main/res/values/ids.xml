@@ -10,4 +10,11 @@
     <item name="action_highlight_text" type="id" />
     <item name="action_underline_text" type="id" />
     <item name="action_strikeout_text" type="id" />
+    <item name="signature_pad" type="id" />
+    <item name="signature_text" type="id" />
+    <item name="field_name_input" type="id" />
+    <item name="field_options_input" type="id" />
+    <item name="field_required_check" type="id" />
+    <item name="field_kind_group" type="id" />
+    <item name="copy_pages_input" type="id" />
 </resources>

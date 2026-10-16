@@ -22,10 +22,32 @@ object AnnotationTransform {
             is Annotation.FreeText -> a.copy(box = box(a.box))
             is Annotation.Stamp -> a.copy(box = box(a.box))
             is Annotation.Image -> a.copy(box = box(a.box))
+            is Annotation.Field -> a.copy(box = box(a.box))
             is Annotation.Shape -> a.copy(points = a.points.map(::pt))
             is Annotation.Ink -> a.copy(strokes = a.strokes.map { it.map(::pt) })
             else -> a
         }
+    }
+
+    /**
+     * A copy of [a] on [page] at the same position, e.g. a signature or stamp repeated on
+     * every page. Kept inside a page of [pageWidth] × [pageHeight] points when given.
+     */
+    fun copyTo(a: Annotation, page: Int, id: String, pageWidth: Float = Float.MAX_VALUE, pageHeight: Float = Float.MAX_VALUE): Annotation {
+        val copy = when (a) {
+            is Annotation.Markup -> a.copy(id = id, page = page)
+            is Annotation.Note -> a.copy(id = id, page = page)
+            is Annotation.FreeText -> a.copy(id = id, page = page)
+            is Annotation.Ink -> a.copy(id = id, page = page)
+            is Annotation.Shape -> a.copy(id = id, page = page)
+            is Annotation.Stamp -> a.copy(id = id, page = page)
+            is Annotation.Image -> a.copy(id = id, page = page)
+            is Annotation.Field -> a.copy(id = id, page = page)
+        }
+        val b = copy.bounds
+        val dx = if (b.right > pageWidth) maxOf(pageWidth - b.right, -b.left) else 0f
+        val dy = if (b.bottom > pageHeight) maxOf(pageHeight - b.bottom, -b.top) else 0f
+        return if (dx != 0f || dy != 0f) copy.moved(dx, dy) else copy
     }
 
     /** A box from two corner points in any order. */
@@ -84,6 +106,7 @@ object AnnotationSummary {
         is Annotation.Markup -> a.text
         is Annotation.FreeText -> a.text
         is Annotation.Stamp -> a.label
+        is Annotation.Field -> a.name
         else -> ""
     }.trim()
 
@@ -109,4 +132,49 @@ object AnnotationSummary {
             if (a.note.isNotBlank()) append("    ").append(a.note.trim().replace("\n", "\n    ")).append('\n')
         }
     }
+}
+
+/** Marks for filling in flat (non-interactive) forms: ticks and crosses as pen strokes. */
+object FormMarks {
+
+    /** A tick ✓ of [size] points centred on [at]. */
+    fun tick(at: Pt, size: Float): List<List<Pt>> {
+        val l = at.x - size / 2
+        val t = at.y - size / 2
+        return listOf(listOf(Pt(l, t + size * 0.55f), Pt(l + size * 0.38f, t + size * 0.9f), Pt(l + size, t + size * 0.1f)))
+    }
+
+    /** A cross ✗ of [size] points centred on [at]. */
+    fun cross(at: Pt, size: Float): List<List<Pt>> {
+        val h = size / 2
+        return listOf(
+            listOf(Pt(at.x - h, at.y - h), Pt(at.x + h, at.y + h)),
+            listOf(Pt(at.x + h, at.y - h), Pt(at.x - h, at.y + h)),
+        )
+    }
+}
+
+/** Helpers for adding new fields with the form builder. */
+object FormBuilder {
+
+    /** The size of a field placed with a tap rather than drawn. */
+    fun defaultSize(kind: FieldKind): Pair<Float, Float> = when (kind) {
+        FieldKind.CHECKBOX, FieldKind.RADIO -> 14f to 14f
+        FieldKind.SIGNATURE -> 180f to 40f
+        FieldKind.CHOICE -> 150f to 20f
+        else -> 180f to 20f
+    }
+
+    /** [base] if unused, else base_2, base_3… (field names must be unique in a form). */
+    fun uniqueName(base: String, existing: Collection<String>): String {
+        val clean = base.trim().replace('.', '_').ifEmpty { "Field" }
+        if (clean !in existing) return clean
+        var i = 2
+        while ("${clean}_$i" in existing) i++
+        return "${clean}_$i"
+    }
+
+    /** Dropdown options typed as a comma- or line-separated list. */
+    fun parseOptions(text: String): List<String> =
+        text.split(',', '\n').map { it.trim() }.filter { it.isNotEmpty() }.distinct()
 }

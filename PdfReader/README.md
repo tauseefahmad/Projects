@@ -51,6 +51,19 @@ tests that run on an Android emulator in CI before a build is published.
 | Annotation panel | All annotations by page with filters by type and author; export a text summary |
 | Saving | Saved as standard PDF annotations other apps can read and edit; save in place or as a copy; flattened copy; unsaved work is kept as a draft and offered again |
 
+### Forms and signatures
+
+| Feature | What you get |
+| --- | --- |
+| Fill forms | Tap text, checkbox, radio, dropdown and date fields; Next/Previous move between fields with the right keyboard; number, email, phone and date checks; required fields are flagged before saving |
+| Autofill | Save your details once (name, address, email, phone, date of birth…) and fill matching fields in one tap |
+| Flat forms | Tick ✓, cross ✗ and today's date tools for forms without fields; text boxes for anything else |
+| Signatures | Draw, type in a handwriting font, or import a photo (the paper is made transparent); signatures and initials are saved for reuse; place, move, resize and copy onto several pages; tap a signature field to sign it |
+| Form builder | Draw text, date, checkbox, dropdown and signature fields on any PDF; they are saved as real fields other apps can fill |
+| Flatten | Save a flattened copy so fields and annotations can no longer be changed |
+
+Not included yet: sending a document to others for signature (needs a server) and certificate-based digital signatures (PAdES).
+
 ### Keyboard shortcuts
 
 | Keys | Action |

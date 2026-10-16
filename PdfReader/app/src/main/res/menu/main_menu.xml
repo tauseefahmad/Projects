@@ -5,6 +5,8 @@
     <item android:id="@+id/action_search" android:icon="@drawable/ic_search" android:title="@string/search" app:showAsAction="ifRoom" />
     <item android:id="@+id/action_save" android:icon="@drawable/ic_save" android:title="@string/save_changes" android:visible="false" app:showAsAction="ifRoom" />
     <item android:id="@+id/action_annotate" android:icon="@drawable/ic_edit" android:title="@string/annotate" app:showAsAction="ifRoom" />
+    <item android:id="@+id/action_sign" android:icon="@drawable/ic_signature" android:title="@string/fill_and_sign" app:showAsAction="never" />
+    <item android:id="@+id/action_build_form" android:title="@string/build_form" app:showAsAction="never" />
     <item android:id="@+id/action_bookmark" android:icon="@drawable/ic_bookmark_border" android:title="@string/add_bookmark" app:showAsAction="ifRoom" />
     <item android:id="@+id/action_open_url" android:title="@string/open_url" app:showAsAction="never" />
     <item android:id="@+id/action_go_to_page" android:title="@string/go_to_page" app:showAsAction="never" />

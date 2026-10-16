@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
@@ -14,6 +15,7 @@ import android.text.TextPaint
 import android.util.LruCache
 import com.example.pdfreader.core.Annotation
 import com.example.pdfreader.core.Box
+import com.example.pdfreader.core.FieldKind
 import com.example.pdfreader.core.Geometry
 import com.example.pdfreader.core.MarkupKind
 import com.example.pdfreader.core.ShapeKind
@@ -52,6 +54,7 @@ object AnnotationPainter {
             is Annotation.Shape -> drawShape(canvas, a)
             is Annotation.Stamp -> drawStamp(canvas, a)
             is Annotation.Image -> drawImage(canvas, a)
+            is Annotation.Field -> drawField(canvas, a)
         }
     }
 
@@ -210,6 +213,38 @@ object AnnotationPainter {
             canvas.drawText(a.subtitle, b.left + (b.width - subWidth) / 2, b.bottom - inset - 4, text)
         }
     }
+
+    private val dashes = DashPathEffect(floatArrayOf(3f, 2f), 0f)
+
+    /** A new form field: a tinted, dashed box with its name, until it is saved as a real field. */
+    private fun drawField(canvas: Canvas, a: Annotation.Field) {
+        val b = a.box
+        rect.set(b.left, b.top, b.right, b.bottom)
+        fill.color = FIELD_FILL
+        canvas.drawRect(rect, fill)
+        stroke.color = FIELD_BORDER
+        stroke.strokeWidth = 0.75f
+        stroke.pathEffect = dashes
+        canvas.drawRect(rect, stroke)
+        stroke.pathEffect = null
+        val label = when (a.kind) {
+            FieldKind.CHECKBOX, FieldKind.RADIO -> "✓"
+            FieldKind.SIGNATURE -> "✍ " + a.name
+            FieldKind.CHOICE -> a.name + " ▾"
+            else -> a.name
+        }
+        text.color = FIELD_BORDER
+        text.typeface = Typeface.SANS_SERIF
+        text.textSize = (b.height * 0.6f).coerceIn(4f, 10f)
+        canvas.save()
+        canvas.clipRect(rect)
+        val x = if (a.kind == FieldKind.CHECKBOX || a.kind == FieldKind.RADIO) b.left + (b.width - text.measureText(label)) / 2 else b.left + 2f
+        canvas.drawText(label, x, b.top + (b.height + text.textSize * 0.7f) / 2, text)
+        canvas.restore()
+    }
+
+    private const val FIELD_FILL = 0x334FC3F7
+    private const val FIELD_BORDER = 0xFF1565C0.toInt()
 
     private fun drawImage(canvas: Canvas, a: Annotation.Image) {
         val bitmap = image(a.imagePath)

@@ -1,18 +1,33 @@
 package com.example.pdfreader
 
+import com.example.pdfreader.core.Annotation
 import com.example.pdfreader.core.Box
+import com.example.pdfreader.core.FormBuilder
 import com.example.pdfreader.core.FieldFormat
 import com.example.pdfreader.core.FieldKind
 import com.example.pdfreader.core.FormField
 import com.example.pdfreader.core.FormFormats
+import com.tom_roush.pdfbox.cos.COSDictionary
 import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
+import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
+import com.tom_roush.pdfbox.pdmodel.PDResources
+import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
+import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
+import com.tom_roush.pdfbox.pdmodel.graphics.color.PDColor
+import com.tom_roush.pdfbox.pdmodel.graphics.color.PDDeviceRGB
 import com.tom_roush.pdfbox.pdmodel.interactive.action.PDActionJavaScript
+import com.tom_roush.pdfbox.pdmodel.interactive.action.PDFormFieldAdditionalActions
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationWidget
+import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAppearanceCharacteristicsDictionary
+import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAppearanceDictionary
+import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAppearanceStream
+import com.tom_roush.pdfbox.pdmodel.interactive.form.PDAcroForm
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDButton
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDCheckBox
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDChoice
+import com.tom_roush.pdfbox.pdmodel.interactive.form.PDComboBox
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDField
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDPushButton
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDRadioButton
@@ -136,4 +151,108 @@ object FormIO {
         }
         if (flatten) form.flatten()
     }
+
+    /**
+     * Adds the fields drawn with the form builder as real interactive fields, creating the
+     * document's form if it has none. Names already in use get a number appended.
+     */
+    fun create(doc: PDDocument, fields: List<Annotation.Field>) {
+        if (fields.isEmpty()) return
+        val form = doc.documentCatalog.acroForm ?: PDAcroForm(doc).also { doc.documentCatalog.acroForm = it }
+        val resources = form.defaultResources ?: PDResources().also { form.defaultResources = it }
+        if (resources.getFont(HELV) == null) resources.put(HELV, PDType1Font.HELVETICA)
+        if (form.defaultAppearance.isNullOrEmpty()) form.defaultAppearance = "/Helv 0 Tf 0 g"
+        val names = form.fieldTree.mapNotNull { it.fullyQualifiedName }.toMutableSet()
+        val added = form.fields.toMutableList()
+        for (f in fields) {
+            if (f.page !in 0 until doc.numberOfPages) continue
+            val page = doc.getPage(f.page)
+            val rect = toRect(page, f.box)
+            val widget = PDAnnotationWidget().apply {
+                rectangle = rect
+                this.page = page
+                isPrinted = true
+                appearanceCharacteristics = PDAppearanceCharacteristicsDictionary(COSDictionary()).apply {
+                    setBorderColour(PDColor(floatArrayOf(0.45f, 0.45f, 0.45f), PDDeviceRGB.INSTANCE))
+                }
+            }
+            val name = FormBuilder.uniqueName(f.name, names).also { names += it }
+            val field = when (f.kind) {
+                FieldKind.CHECKBOX, FieldKind.RADIO -> PDCheckBox(form).apply {
+                    widget.appearance = checkboxAppearance(doc, rect.width, rect.height)
+                    widget.setAppearanceState(COSName.Off.name)
+                }
+                FieldKind.CHOICE -> PDComboBox(form).apply {
+                    defaultAppearance = "/Helv 0 Tf 0 g"
+                    setOptions(f.options.ifEmpty { listOf("") })
+                }
+                FieldKind.SIGNATURE -> PDSignatureField(form).apply {
+                    widget.appearance = boxAppearance(doc, rect.width, rect.height)
+                }
+                else -> PDTextField(form).apply {
+                    defaultAppearance = "/Helv 0 Tf 0 g"
+                    if (f.format == FieldFormat.DATE) {
+                        // The same format script Acrobat writes, so other apps know it is a date.
+                        val actions = PDFormFieldAdditionalActions().apply { setF(PDActionJavaScript("AFDate_FormatEx(\"$DATE_PATTERN\");")) }
+                        cosObject.setItem(COSName.AA, actions)
+                    }
+                }
+            }
+            field.partialName = name
+            field.isRequired = f.required
+            if (f.note.isNotBlank()) field.alternateFieldName = f.note
+            field.widgets = listOf(widget)
+            page.annotations = page.annotations.toMutableList().apply { add(widget) }
+            added += field
+        }
+        form.fields = added
+        // Builds the empty text and dropdown fields' appearances, with their borders.
+        val variableText = added.filter { it is PDTextField || it is PDComboBox }.filter { f -> f.widgets.any { it.appearance == null } }
+        runCatching { form.refreshAppearances(variableText) }
+    }
+
+    /** The date pattern of date fields made with the form builder. */
+    const val DATE_PATTERN = "yyyy-mm-dd"
+
+    private val HELV = COSName.getPDFName("Helv")
+
+    private fun toRect(page: PDPage, box: Box): PDRectangle {
+        val crop = page.cropBox
+        return PDRectangle(crop.lowerLeftX + box.left, crop.upperRightY - box.bottom, box.width, box.height)
+    }
+
+    private fun stream(doc: PDDocument, w: Float, h: Float, draw: (PDPageContentStream) -> Unit) = PDAppearanceStream(doc).apply {
+        bBox = PDRectangle(w, h)
+        resources = PDResources()
+        PDPageContentStream(doc, this).use(draw)
+    }
+
+    private fun border(s: PDPageContentStream, w: Float, h: Float) {
+        s.setStrokingColor(0.45f, 0.45f, 0.45f)
+        s.setLineWidth(1f)
+        s.addRect(0.5f, 0.5f, w - 1, h - 1)
+        s.stroke()
+    }
+
+    /** A bordered box with a tick for "Yes" and an empty one for "Off". */
+    private fun checkboxAppearance(doc: PDDocument, w: Float, h: Float): PDAppearanceDictionary {
+        val on = stream(doc, w, h) { s ->
+            border(s, w, h)
+            s.setStrokingColor(0f, 0f, 0f)
+            s.setLineWidth((minOf(w, h) * 0.12f).coerceAtLeast(1f))
+            s.moveTo(w * 0.2f, h * 0.5f)
+            s.lineTo(w * 0.42f, h * 0.22f)
+            s.lineTo(w * 0.8f, h * 0.8f)
+            s.stroke()
+        }
+        val off = stream(doc, w, h) { s -> border(s, w, h) }
+        val normal = COSDictionary().apply {
+            setItem(COSName.getPDFName("Yes"), on)
+            setItem(COSName.Off, off)
+        }
+        return PDAppearanceDictionary().apply { cosObject.setItem(COSName.N, normal) }
+    }
+
+    private fun boxAppearance(doc: PDDocument, w: Float, h: Float) =
+        PDAppearanceDictionary().apply { setNormalAppearance(stream(doc, w, h) { s -> border(s, w, h) }) }
 }

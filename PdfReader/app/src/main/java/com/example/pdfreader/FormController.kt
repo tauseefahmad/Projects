@@ -61,6 +61,9 @@ class FormController(
     private val context: Context get() = activity
     private val store by lazy { ProfileStore(activity) }
 
+    /** A signature field was tapped; the screen lets the user pick a signature for it. */
+    var onSignField: (FormField) -> Unit = {}
+
     private lateinit var pages: ZoomableRecyclerView
     private lateinit var bar: View
     private lateinit var label: TextView
@@ -170,7 +173,10 @@ class FormController(
                 showChoices(field)
             }
             FieldKind.TEXT -> edit(field)
-            FieldKind.SIGNATURE -> return false
+            FieldKind.SIGNATURE -> {
+                finishEditing()
+                onSignField(field)
+            }
             FieldKind.BUTTON -> return false
         }
         return true

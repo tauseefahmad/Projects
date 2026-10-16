@@ -192,7 +192,8 @@ object AnnotationIO {
      * Images are read from their private files.
      */
     fun write(doc: PDDocument, annotations: List<Annotation>) {
-        val byPage = annotations.groupBy { it.page }
+        // New form fields are written by FormIO.create, as real fields.
+        val byPage = annotations.filter { it !is Annotation.Field }.groupBy { it.page }
         doc.pages.forEachIndexed { index, page ->
             val kept = page.annotations.filterNot(::isManaged).toMutableList()
             // Pop-ups of rewritten annotations would dangle; keep only those of untouched ones.
@@ -306,6 +307,7 @@ object AnnotationIO {
                 val image = LosslessFactory.createFromImage(doc, bitmap)
                 appearance = appearance(doc, rectangle) { s -> s.drawImage(image, rectangle.lowerLeftX, rectangle.lowerLeftY, rectangle.width, rectangle.height) }
             }
+            is Annotation.Field -> throw IllegalArgumentException("Form fields are written by FormIO")
         }
         // Common entries every viewer understands.
         annotation.annotationName = a.id

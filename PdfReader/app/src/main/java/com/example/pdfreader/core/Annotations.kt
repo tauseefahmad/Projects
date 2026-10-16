@@ -154,6 +154,24 @@ sealed class Annotation {
         override fun withNote(note: String) = copy(note = note)
         override fun moved(dx: Float, dy: Float) = copy(box = box.offset(dx, dy))
     }
+
+    /**
+     * A form field being added with the form builder. It becomes a real interactive field
+     * (AcroForm) when the document is saved; until then it is edited like an annotation.
+     */
+    @Serializable
+    @SerialName("field")
+    data class Field(
+        override val id: String, override val page: Int, override val color: Int,
+        override val author: String, override val modified: Long, override val note: String = "",
+        val box: Box, val kind: FieldKind, val name: String,
+        val format: FieldFormat = FieldFormat.PLAIN, val options: List<String> = emptyList(), val required: Boolean = false,
+    ) : Annotation() {
+        override val bounds get() = box
+        override fun withColor(color: Int) = this
+        override fun withNote(note: String) = copy(note = note)
+        override fun moved(dx: Float, dy: Float) = copy(box = box.offset(dx, dy))
+    }
 }
 
 /** Human-readable type names for the annotation panel and filters. */
@@ -170,6 +188,7 @@ fun Annotation.typeName(): String = when (this) {
     is Annotation.Shape -> kind.name.lowercase().replaceFirstChar { it.uppercase() }
     is Annotation.Stamp -> "Stamp"
     is Annotation.Image -> "Image"
+    is Annotation.Field -> "Form field"
 }
 
 /**
@@ -201,6 +220,9 @@ class AnnotationHistory(initial: List<Annotation> = emptyList()) {
     }
 
     fun add(annotation: Annotation) = commit(items + annotation)
+
+    /** Adds several annotations as one undo step (e.g. a signature copied to many pages). */
+    fun addAll(annotations: List<Annotation>) = commit(items + annotations)
 
     fun replace(annotation: Annotation) = commit(items.map { if (it.id == annotation.id) annotation else it })
 

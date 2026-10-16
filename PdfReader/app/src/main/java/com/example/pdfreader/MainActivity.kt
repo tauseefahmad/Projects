@@ -261,6 +261,7 @@ class MainActivity : AppCompatActivity() {
         setUpMenu()
         annotate.attach(pages, drawer)
         annotate.confirmSave = forms::confirmSave
+        forms.onSignField = annotate::signField
         forms.attach(pages, drawer)
         forms.onEditingChanged = { editing ->
             closeFormOnBack.isEnabled = editing
@@ -540,6 +541,8 @@ class MainActivity : AppCompatActivity() {
                 R.id.action_rotate -> rotateView()
                 R.id.action_organize -> openOrganizer()
                 R.id.action_annotate -> annotate.start()
+                R.id.action_sign -> annotate.start(AnnotTool.SIGN)
+                R.id.action_build_form -> annotate.start(AnnotTool.FIELD)
                 R.id.action_save -> shownReady?.let { annotate.save(copy = !(it.contentUri == it.uri && canWrite(it.uri)), flatten = false) }
                 R.id.form_autofill -> forms.autofill()
                 R.id.form_profile -> forms.editProfile()
@@ -674,7 +677,9 @@ class MainActivity : AppCompatActivity() {
         for (id in listOf(R.id.action_annotate, R.id.action_document, R.id.action_full_screen, R.id.action_organize, R.id.action_tools)) {
             toolbar.menu.findItem(id).isVisible = ready != null
         }
-        toolbar.menu.findItem(R.id.action_annotate).isVisible = ready != null && !viewModel.annotating
+        for (id in listOf(R.id.action_annotate, R.id.action_sign, R.id.action_build_form)) {
+            toolbar.menu.findItem(id).isVisible = ready != null && !viewModel.annotating
+        }
         toolbar.menu.findItem(R.id.form_highlight).isChecked = ProfileStore(this).highlightFields
         toolbar.menu.findItem(R.id.action_close).isVisible = ready != null
         toolbar.title = ready?.name ?: getString(R.string.app_name)
@@ -1055,7 +1060,9 @@ class MainActivity : AppCompatActivity() {
         navBar.isVisible = !on && shownReady != null && !viewModel.fullScreen
         val document = shownDocument
         fastScroll.isVisible = !on && document != null && settings.viewMode != ViewMode.SINGLE_PAGE && document.pageCount > 2
-        toolbar.menu.findItem(R.id.action_annotate)?.isVisible = !on && shownReady != null
+        for (id in listOf(R.id.action_annotate, R.id.action_sign, R.id.action_build_form)) {
+            toolbar.menu.findItem(id)?.isVisible = !on && shownReady != null
+        }
     }
 
     // --- Full screen -------------------------------------------------------------------------

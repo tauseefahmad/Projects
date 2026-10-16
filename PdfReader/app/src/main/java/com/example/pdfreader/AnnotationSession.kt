@@ -86,6 +86,7 @@ class AnnotationSession(
     }
 
     fun add(a: Annotation) = change { history.add(a) }
+    fun addAll(list: List<Annotation>) = change { history.addAll(list) }
     fun replace(a: Annotation) = change { history.replace(a) }
     fun remove(id: String) = change { history.remove(id) }
     fun removeAll(ids: Set<String>) = change { history.removeAll(ids) }
@@ -153,6 +154,7 @@ class AnnotationSession(
         PDFBoxResourceLoader.init(context.applicationContext)
         val input = context.contentResolver.openInputStream(source) ?: throw java.io.IOException("Cannot read $source")
         input.use { PDDocument.load(it, MemoryUsageSetting.setupTempFileOnly()) }.use { doc ->
+            FormIO.create(doc, history.items.filterIsInstance<Annotation.Field>())
             FormIO.write(doc, formValues, flatten)
             AnnotationIO.write(doc, history.items)
             if (flatten) AnnotationIO.flatten(doc)

@@ -29,6 +29,13 @@ import com.example.pdfreader.core.AnnotationFilter
 import com.example.pdfreader.core.AnnotationSummary
 import com.example.pdfreader.core.AnnotationTransform
 import com.example.pdfreader.core.Box
+import com.example.pdfreader.core.FieldFormat
+import com.example.pdfreader.core.FieldKind
+import com.example.pdfreader.core.FormBuilder
+import com.example.pdfreader.core.FormField
+import com.example.pdfreader.core.FormMarks
+import com.example.pdfreader.core.PageRangeException
+import com.example.pdfreader.core.PageRanges
 import com.example.pdfreader.core.Geometry
 import com.example.pdfreader.core.MarkupKind
 import com.example.pdfreader.core.PalmRejection
@@ -68,7 +75,12 @@ enum class AnnotTool(val icon: Int, val label: Int) {
     LINE(R.drawable.ic_shape_line, R.string.tool_line),
     ARROW(R.drawable.ic_shape_arrow, R.string.tool_arrow),
     STAMP(R.drawable.ic_stamp, R.string.tool_stamp),
-    IMAGE(R.drawable.ic_image, R.string.tool_image);
+    IMAGE(R.drawable.ic_image, R.string.tool_image),
+    SIGN(R.drawable.ic_signature, R.string.tool_sign),
+    TICK(R.drawable.ic_check, R.string.tool_tick),
+    CROSS(R.drawable.ic_close, R.string.tool_cross),
+    DATE(R.drawable.ic_calendar, R.string.tool_date),
+    FIELD(R.drawable.ic_form_field, R.string.tool_field);
 
     val markup: MarkupKind?
         get() = when (this) {
@@ -128,7 +140,7 @@ class AnnotationPrefs(context: Context) {
         fun defaultColor(tool: AnnotTool): Int = when (tool) {
             AnnotTool.HIGHLIGHT, AnnotTool.HIGHLIGHTER, AnnotTool.NOTE -> 0xFFFFEB3B.toInt()
             AnnotTool.UNDERLINE, AnnotTool.PEN -> 0xFF1E88E5.toInt()
-            AnnotTool.TEXT -> 0xFF000000.toInt()
+            AnnotTool.TEXT, AnnotTool.TICK, AnnotTool.CROSS, AnnotTool.DATE -> 0xFF000000.toInt()
             AnnotTool.STAMP -> 0xFF43A047.toInt()
             else -> 0xFFF44336.toInt()
         }
@@ -170,6 +182,7 @@ class AnnotateController(
     private lateinit var colorButton: View
     private lateinit var colorSwatch: View
     private lateinit var widthButton: ImageButton
+    private lateinit var copyPagesButton: View
     private lateinit var selectionActions: View
     private lateinit var editTextButton: View
     private lateinit var panelFilters: ChipGroup
@@ -192,6 +205,11 @@ class AnnotateController(
     private var stampKind = StampKind.APPROVED
     private var stampLabel = StampKind.APPROVED.label
     private var pendingImage: Triple<File, Int, Int>? = null
+    private var pendingSignature: SignatureStore.Saved? = null
+    private var lastFieldType = 0
+
+    /** Saved signatures and initials, and making new ones. */
+    val signatures = SignaturePicker(activity)
 
     private val panelAdapter = AnnotationAdapter(
         onOpen = { a ->
@@ -240,6 +258,7 @@ class AnnotateController(
         widthButton = root.findViewById(R.id.annotWidth)
         selectionActions = root.findViewById(R.id.annotSelectionActions)
         editTextButton = root.findViewById(R.id.annotEditText)
+        copyPagesButton = root.findViewById(R.id.annotCopyPages)
         panelFilters = root.findViewById(R.id.annotationFilters)
         panelList = root.findViewById(R.id.annotationList)
         panelEmpty = root.findViewById(R.id.annotationsEmpty)
@@ -265,8 +284,15 @@ class AnnotateController(
         TooltipCompat.setTooltipText(colorButton, colorButton.contentDescription)
         widthButton.setOnClickListener { showWidthPicker() }
         root.findViewById<View>(R.id.annotComment).setOnClickListener { selected?.let(::editComment) }
-        editTextButton.setOnClickListener { (selected as? Annotation.FreeText)?.let(::editFreeText) }
+        editTextButton.setOnClickListener {
+            when (val sel = selected) {
+                is Annotation.FreeText -> editFreeText(sel)
+                is Annotation.Field -> editField(sel)
+                else -> Unit
+            }
+        }
         root.findViewById<View>(R.id.annotDelete).setOnClickListener { deleteSelected() }
+        copyPagesButton.setOnClickListener { selected?.let(::copyToPages) }
         root.findViewById<View>(R.id.annotList).setOnClickListener { openPanel() }
         root.findViewById<View>(R.id.annotMore).setOnClickListener(::showMoreMenu)
         root.findViewById<View>(R.id.annotDone).setOnClickListener { finish() }
@@ -308,12 +334,14 @@ class AnnotateController(
 
     // --- Mode -------------------------------------------------------------------------------
 
-    fun start() {
+    /** Turns annotate mode on, optionally with [with] as the tool (e.g. to sign). */
+    fun start(with: AnnotTool? = null) {
         if (session == null) {
             Toast.makeText(context, R.string.annotations_unavailable, Toast.LENGTH_LONG).show()
             return
         }
         setActive(true)
+        if (with != null) chooseTool(with)
     }
 
     private fun setActive(on: Boolean) {
@@ -368,6 +396,18 @@ class AnnotateController(
                 setTool(t)
                 pickImage.launch("image/*")
             }
+            AnnotTool.SIGN -> {
+                setTool(t)
+                pickSignature()
+            }
+            AnnotTool.TICK, AnnotTool.CROSS, AnnotTool.DATE -> {
+                setTool(t)
+                Toast.makeText(context, R.string.tap_to_place_mark, Toast.LENGTH_SHORT).show()
+            }
+            AnnotTool.FIELD -> {
+                setTool(t)
+                Toast.makeText(context, R.string.draw_field_hint, Toast.LENGTH_SHORT).show()
+            }
             else -> setTool(t)
         }
     }
@@ -375,6 +415,7 @@ class AnnotateController(
     fun setTool(t: AnnotTool) {
         tool = t
         prefs.tool = t
+        if (t != AnnotTool.SIGN) pendingSignature = null
         if (t != AnnotTool.SELECT) selectedId = null
         updateBar()
         invalidatePages()
@@ -390,9 +431,10 @@ class AnnotateController(
         redoButton.alpha = if (redoButton.isEnabled) 1f else 0.38f
         val selected = selected
         selectionActions.isVisible = selected != null
-        editTextButton.isVisible = selected is Annotation.FreeText
+        editTextButton.isVisible = selected is Annotation.FreeText || selected is Annotation.Field
+        copyPagesButton.isVisible = selected != null && selected !is Annotation.Markup && (ready?.document?.pageCount ?: 0) > 1
         val color = selected?.color ?: prefs.color(tool)
-        colorButton.isVisible = selected?.let { it !is Annotation.Image } ?: (tool != AnnotTool.SELECT && tool != AnnotTool.ERASER && tool != AnnotTool.IMAGE)
+        colorButton.isVisible = selected?.let { it !is Annotation.Image && it !is Annotation.Field } ?: (tool !in NO_COLOR_TOOLS)
         colorSwatch.background = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             setColor(color)
@@ -514,7 +556,7 @@ class AnnotateController(
                 Gesture.MARKUP
             }
             effective.shape != null -> Gesture.SHAPE
-            effective == AnnotTool.TEXT -> Gesture.TEXT_BOX
+            effective == AnnotTool.TEXT || effective == AnnotTool.FIELD -> Gesture.TEXT_BOX
             else -> Gesture.PLACE
         }
         if (selectedId != null && gesture != Gesture.MOVE && gesture != Gesture.RESIZE) {
@@ -592,7 +634,13 @@ class AnnotateController(
                     session.replace(moved)
                 } else if (wasSelected) {
                     // Tapping the selected annotation again opens its text or comment.
-                    original?.let { a -> if (a is Annotation.FreeText) editFreeText(a) else editComment(a) }
+                    original?.let { a ->
+                        when (a) {
+                            is Annotation.FreeText -> editFreeText(a)
+                            is Annotation.Field -> editField(a)
+                            else -> editComment(a)
+                        }
+                    }
                 } else {
                     (original as? Annotation.Note)?.let(::editComment)
                 }
@@ -600,7 +648,7 @@ class AnnotateController(
             Gesture.RESIZE -> previewAnnotation?.let { session.replace(it) }
             Gesture.TEXT_BOX -> {
                 val box = if (moved) AnnotationTransform.boxOf(start, current).takeIf { it.width > 12 && it.height > 8 } else null
-                createFreeText(view.page, start, box)
+                if (tool == AnnotTool.FIELD) createField(view, start, box) else createFreeText(view.page, start, box)
             }
             Gesture.PLACE -> place(view, start)
         }
@@ -754,7 +802,227 @@ class AnnotateController(
                 session.add(image)
                 select(image.id)
             }
+            AnnotTool.SIGN -> {
+                val saved = pendingSignature ?: run {
+                    pickSignature()
+                    return
+                }
+                val (file, aspect) = importSignature(saved) ?: return
+                var width = if (saved.kind == SignatureStore.Kind.INITIALS) INITIALS_WIDTH else SIGNATURE_WIDTH
+                var height = width * aspect
+                if (height > SIGNATURE_MAX_HEIGHT) {
+                    height = SIGNATURE_MAX_HEIGHT
+                    width = height / aspect
+                }
+                width = minOf(width, r.width * 0.9f)
+                val image = Annotation.Image(AnnotationIO.newId(), view.page, 0, prefs.author, now(), box = fit(width, width * aspect), imagePath = file.path)
+                session.add(image)
+                // Ready to move or resize it, or copy it to other pages.
+                setTool(AnnotTool.SELECT)
+                select(image.id)
+            }
+            AnnotTool.TICK, AnnotTool.CROSS -> {
+                val strokes = if (tool == AnnotTool.TICK) FormMarks.tick(at, MARK_SIZE) else FormMarks.cross(at, MARK_SIZE)
+                session.add(Annotation.Ink(AnnotationIO.newId(), view.page, prefs.color(tool), prefs.author, now(), strokes = strokes, width = MARK_WIDTH))
+            }
+            AnnotTool.DATE -> {
+                val text = DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date())
+                val layout = AnnotationPainter.textLayout(text, DATE_SIZE, 0, 400f)
+                val width = (0 until layout.lineCount).maxOf { layout.getLineWidth(it) } + 8
+                val box = fit(width, layout.height + DATE_SIZE * 0.6f)
+                session.add(Annotation.FreeText(AnnotationIO.newId(), view.page, prefs.color(tool), prefs.author, now(), box = box, text = text, fontSize = DATE_SIZE))
+            }
             else -> Unit
+        }
+    }
+
+    // --- Signatures ---------------------------------------------------------------------------
+
+    private fun pickSignature() {
+        signatures.pick { saved ->
+            if (tool != AnnotTool.SIGN) setTool(AnnotTool.SIGN)
+            pendingSignature = saved
+            Toast.makeText(context, R.string.tap_to_place_signature, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /** Copies a saved signature into the document's images; returns it with its height/width ratio. */
+    private fun importSignature(saved: SignatureStore.Saved): Pair<File, Float>? {
+        val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        android.graphics.BitmapFactory.decodeFile(saved.file.path, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+        val copy = File(AnnotationSession.imageDir(context).apply { mkdirs() }, "${UUID.randomUUID()}.png")
+        return runCatching { saved.file.copyTo(copy) }.getOrNull()?.let { it to bounds.outHeight.toFloat() / bounds.outWidth }
+    }
+
+    /** Signs a form's signature field: places the chosen signature inside it. */
+    fun signField(field: FormField) {
+        if (session == null) return
+        signatures.pick { saved -> signInto(saved, field.page, field.box) }
+    }
+
+    /** Places [saved] centred in [box], as large as fits. */
+    fun signInto(saved: SignatureStore.Saved, page: Int, box: Box) {
+        val session = session ?: return
+        val (file, aspect) = importSignature(saved) ?: return
+        var w = (box.width - 4).coerceAtLeast(4f)
+        var h = w * aspect
+        if (h > box.height - 4) {
+            h = (box.height - 4).coerceAtLeast(4f)
+            w = h / aspect
+        }
+        val left = box.left + (box.width - w) / 2
+        val top = box.top + (box.height - h) / 2
+        val image = Annotation.Image(AnnotationIO.newId(), page, 0, prefs.author, now(), box = Box(left, top, left + w, top + h), imagePath = file.path)
+        session.add(image)
+        if (isActive) select(image.id)
+    }
+
+    /** Repeats [a] on other pages, at the same place, as one undo step. */
+    fun copyToPages(a: Annotation) {
+        val ready = ready ?: return
+        val count = ready.document.pageCount
+        val input = EditText(context).apply {
+            id = R.id.copy_pages_input
+            setText(if (count > 1) "1-$count" else "1")
+            setHint(R.string.copy_to_pages_hint)
+            setSingleLine()
+            inputType = InputType.TYPE_CLASS_TEXT
+        }
+        val dialog = MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.copy_to_pages)
+            .setView(padded(input))
+            .setPositiveButton(R.string.ok, null)
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+        dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val pages = try {
+                PageRanges.parse(input.text.toString(), count).flatMap { it.toList() }.distinct()
+            } catch (e: PageRangeException) {
+                input.error = e.message
+                return@setOnClickListener
+            }
+            dialog.dismiss()
+            copyTo(a, pages)
+        }
+    }
+
+    /** Copies [a] onto [pages] (its own page is skipped). Returns how many copies were made. */
+    fun copyTo(a: Annotation, pages: List<Int>): Int {
+        val ready = ready ?: return 0
+        val session = session ?: return 0
+        val sizes = ready.document.pageSizes
+        val source = sizes.getOrNull(a.page)
+        val copies = pages.filter { it != a.page && it in sizes.indices }.map { p ->
+            val size = sizes[p]
+            // Only keep it inside pages of a different size; same-size pages need no adjusting.
+            if (size == source) AnnotationTransform.copyTo(a, p, AnnotationIO.newId())
+            else AnnotationTransform.copyTo(a, p, AnnotationIO.newId(), size.width.toFloat(), size.height.toFloat())
+        }
+        if (copies.isEmpty()) return 0
+        session.addAll(copies)
+        Toast.makeText(context, context.getString(R.string.copied_to_pages, copies.size), Toast.LENGTH_SHORT).show()
+        return copies.size
+    }
+
+    // --- Form builder ---------------------------------------------------------------------------
+
+    private data class FieldType(val label: Int, val kind: FieldKind, val format: FieldFormat = FieldFormat.PLAIN)
+
+    private val fieldTypes = listOf(
+        FieldType(R.string.field_type_text, FieldKind.TEXT),
+        FieldType(R.string.field_type_date, FieldKind.TEXT, FieldFormat.DATE),
+        FieldType(R.string.field_type_checkbox, FieldKind.CHECKBOX),
+        FieldType(R.string.field_type_dropdown, FieldKind.CHOICE),
+        FieldType(R.string.field_type_signature, FieldKind.SIGNATURE),
+    )
+
+    private fun fieldNames(except: String? = null): List<String> =
+        session?.formFields.orEmpty().map { it.name } +
+            session?.items.orEmpty().filterIsInstance<Annotation.Field>().filter { it.id != except }.map { it.name }
+
+    /** Adds a new form field: drawn as [box], or a default size at [at]. */
+    private fun createField(view: PageView, at: Pt, box: Box?) {
+        val r = view.pageRotation ?: return
+        fieldDialog(null) { type, name, options, required ->
+            val target = box ?: run {
+                val (w, h) = FormBuilder.defaultSize(type.kind)
+                val left = (at.x - w / 2).coerceIn(0f, (r.width - w).coerceAtLeast(0f))
+                val top = (at.y - h / 2).coerceIn(0f, (r.height - h).coerceAtLeast(0f))
+                Box(left, top, left + w, top + h)
+            }
+            val field = Annotation.Field(
+                AnnotationIO.newId(), view.page, 0, prefs.author, now(), box = target,
+                kind = type.kind, name = FormBuilder.uniqueName(name, fieldNames()), format = type.format, options = options, required = required,
+            )
+            session?.add(field)
+            select(field.id)
+        }
+    }
+
+    private fun editField(field: Annotation.Field) {
+        fieldDialog(field) { type, name, options, required ->
+            session?.replace(field.copy(kind = type.kind, format = type.format, name = FormBuilder.uniqueName(name, fieldNames(except = field.id)), options = options, required = required))
+        }
+    }
+
+    private fun fieldDialog(existing: Annotation.Field?, onDone: (FieldType, String, List<String>, Boolean) -> Unit) {
+        val group = android.widget.RadioGroup(context).apply { id = R.id.field_kind_group }
+        val buttons = fieldTypes.map { type ->
+            android.widget.RadioButton(context).apply {
+                id = View.generateViewId()
+                setText(type.label)
+            }.also(group::addView)
+        }
+        val initial = existing?.let { e -> fieldTypes.indexOfFirst { it.kind == e.kind && it.format == e.format }.takeIf { it >= 0 } } ?: lastFieldType
+        buttons[initial].isChecked = true
+        val name = EditText(context).apply {
+            id = R.id.field_name_input
+            setHint(R.string.field_name)
+            setSingleLine()
+            setText(existing?.name.orEmpty())
+        }
+        val options = EditText(context).apply {
+            id = R.id.field_options_input
+            setHint(R.string.field_options)
+            setText(existing?.options.orEmpty().joinToString(", "))
+        }
+        val required = android.widget.CheckBox(context).apply {
+            id = R.id.field_required_check
+            setText(R.string.field_is_required)
+            isChecked = existing?.required == true
+        }
+        fun selectedType() = fieldTypes[buttons.indexOfFirst { it.isChecked }.coerceAtLeast(0)]
+        fun update() {
+            options.isVisible = selectedType().kind == FieldKind.CHOICE
+            required.isVisible = selectedType().kind != FieldKind.SIGNATURE
+        }
+        group.setOnCheckedChangeListener { _, _ -> update() }
+        update()
+        val content = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(group)
+            addView(name)
+            addView(options)
+            addView(required)
+        }
+        val dialog = MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.tool_field)
+            .setView(padded(android.widget.ScrollView(context).apply { addView(content) }))
+            .setPositiveButton(R.string.ok, null)
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+        dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val type = selectedType()
+            val list = if (type.kind == FieldKind.CHOICE) FormBuilder.parseOptions(options.text.toString()) else emptyList()
+            if (type.kind == FieldKind.CHOICE && list.isEmpty()) {
+                options.error = context.getString(R.string.field_needs_options)
+                return@setOnClickListener
+            }
+            lastFieldType = fieldTypes.indexOf(type)
+            val label = name.text.toString().trim().ifEmpty { context.getString(type.label) }
+            dialog.dismiss()
+            onDone(type, label, list, required.isChecked && type.kind != FieldKind.SIGNATURE)
         }
     }
 
@@ -922,6 +1190,7 @@ class AnnotateController(
         is Annotation.Note -> AnnotTool.NOTE
         is Annotation.Stamp -> AnnotTool.STAMP
         is Annotation.Image -> null
+        is Annotation.Field -> AnnotTool.FIELD
     }
 
     private fun showWidthPicker() {
@@ -1164,5 +1433,12 @@ class AnnotateController(
         const val STAMP_WIDTH = 150f
         const val STAMP_HEIGHT = 50f
         const val IMAGE_WIDTH = 150f
+        const val SIGNATURE_WIDTH = 140f
+        const val SIGNATURE_MAX_HEIGHT = 60f
+        const val INITIALS_WIDTH = 50f
+        const val MARK_SIZE = 10f
+        const val MARK_WIDTH = 1.5f
+        const val DATE_SIZE = 11f
+        val NO_COLOR_TOOLS = setOf(AnnotTool.SELECT, AnnotTool.ERASER, AnnotTool.IMAGE, AnnotTool.SIGN, AnnotTool.FIELD)
     }
 }
