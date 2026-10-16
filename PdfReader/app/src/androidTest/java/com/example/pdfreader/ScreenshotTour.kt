@@ -72,6 +72,16 @@ class ScreenshotTour {
         }
     }
 
+    /** Runs a whole scenario; if it breaks, the tour notes it and goes on. */
+    private fun scene(name: String, block: () -> Unit) {
+        try {
+            block()
+        } catch (t: Throwable) {
+            log.append("FAIL scene ").append(name).append(": ").append(t.toString().take(300)).append('\n')
+        }
+        current = null
+    }
+
     /** The reader currently on screen; cleanup only touches it. */
     private var current: ActivityScenario<MainActivity>? = null
 
@@ -121,6 +131,10 @@ class ScreenshotTour {
             step("side-panel-thumbnails") { scenario.onActivity { it.findViewById<androidx.drawerlayout.widget.DrawerLayout>(R.id.drawer).openDrawer(androidx.core.view.GravityCompat.START) } }
 
             step("annotations") {
+                // Close search and go back to page 1, where the annotations go.
+                runCatching { onView(withId(R.id.searchClose)).perform(click()) }
+                scenario.onActivity { it.findViewById<ZoomableRecyclerView>(R.id.pages).scrollToPosition(0) }
+                Thread.sleep(500)
                 scenario.onActivity { a ->
                     a.annotateController.start()
                     val session = a.annotationSession!!
@@ -155,10 +169,10 @@ class ScreenshotTour {
 
         // Forms: a fillable form with the field bar.
         val form = TestForms.create(context, "Application form.pdf")
-        openUri(form).use { scenario ->
+        scene("form") { openUri(form).use { scenario ->
             current = scenario
-            waitForPageLabel("1 / 1")
             step("form-filling") {
+                waitForPageLabel("1 / 1", 20_000)
                 waitFor { scenario.onActivity { check(it.findViewById<ZoomableRecyclerView>(R.id.pages).pageViewFor(0)?.pageRotation != null) } }
                 scenario.onActivity { a ->
                     val fields = a.annotationSession!!.formFields
@@ -167,20 +181,20 @@ class ScreenshotTour {
                     fields.firstOrNull { it.name == "Email" }?.let { a.formController.edit(it) }
                 }
             }
-        }
+        } }
 
         // German interface.
-        openUri(uri).use { scenario ->
+        scene("german") { openUri(uri).use { scenario ->
             current = scenario
-            waitForPageLabel("1 / 4")
             step("german-interface") {
+                waitForPageLabel("1 / 4", 20_000)
                 InstrumentationRegistry.getInstrumentation().runOnMainSync { AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("de")) }
                 Thread.sleep(2500)
                 Espresso.openActionBarOverflowOrOptionsMenu(context)
                 Thread.sleep(600)
             }
-            InstrumentationRegistry.getInstrumentation().runOnMainSync { AppCompatDelegate.setApplicationLocales(LocaleListCompat.getEmptyLocaleList()) }
-        }
+        } }
+        InstrumentationRegistry.getInstrumentation().runOnMainSync { AppCompatDelegate.setApplicationLocales(LocaleListCompat.getEmptyLocaleList()) }
         current = null
 
         File(context.cacheDir, "tour.txt").writeText(log.toString())
