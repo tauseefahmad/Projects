@@ -62,7 +62,9 @@ tests that run on an Android emulator in CI before a build is published.
 | Form builder | Draw text, date, checkbox, dropdown and signature fields on any PDF; they are saved as real fields other apps can fill |
 | Flatten | Save a flattened copy so fields and annotations can no longer be changed |
 
-Not included yet: sending a document to others for signature (needs a server) and certificate-based digital signatures (PAdES).
+| Digital signatures | *Document → Sign with certificate*: PAdES signature with an imported .p12/.pfx certificate or a personal certificate made on the phone; *Check signatures* shows whether each signature is intact and whether the file changed afterwards |
+
+Needs a server, so not included: sending a document to others for signature. Qualified (legally binding) signatures need a certificate from a trust provider, which can be imported.
 
 ### Conversion, OCR and compression
 
