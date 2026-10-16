@@ -245,7 +245,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         setUpMenu()
-        annotate.attach(pages, root)
+        annotate.attach(pages, drawer)
 
         findViewById<View>(R.id.openButton).setOnClickListener { launchPicker() }
         findViewById<View>(R.id.openUrlButton).setOnClickListener { showOpenUrlDialog() }
