@@ -106,6 +106,7 @@ class PageAdapter(
 
     /** Annotations drawn over every page. */
     var annotationLayer: PageView.AnnotationLayer? = null
+    var formLayer: PageView.FormLayer? = null
 
     /** Re-fetches highlights for the visible pages, e.g. after a new search. */
     fun refreshHighlights() = notifyItemRangeChanged(0, itemCount, PAYLOAD_HIGHLIGHTS)
@@ -132,6 +133,7 @@ class PageAdapter(
                 elevation = 2 * density
                 scaleType = ImageView.ScaleType.FIT_XY
                 annotationLayer = this@PageAdapter.annotationLayer
+                formLayer = this@PageAdapter.formLayer
                 layoutParams = LinearLayout.LayoutParams(0, 0).apply {
                     if (index == 1) marginStart = (GAP_DP * density).toInt()
                 }

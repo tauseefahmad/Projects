@@ -194,9 +194,21 @@ class MainActivity : AppCompatActivity() {
         onModeChanged = ::onAnnotateModeChanged,
     )
 
+    private val forms = FormController(this) { goToPage(it) }
+
+    /** Keeps the Save button in step with unsaved annotations and form entries. */
+    private val saveButtonListener: () -> Unit = { updateSaveButton() }
+
+    private val closeFormOnBack = object : androidx.activity.OnBackPressedCallback(false) {
+        override fun handleOnBackPressed() {
+            forms.handleBack()
+        }
+    }
+
     /** For tests: the open document's annotations and the annotate-mode controller. */
     internal val annotationSession: AnnotationSession? get() = shownReady?.annotations
     internal val annotateController: AnnotateController get() = annotate
+    internal val formController: FormController get() = forms
 
     private fun openOrganizer() {
         val ready = shownReady ?: return
@@ -239,13 +251,22 @@ class MainActivity : AppCompatActivity() {
         val sidePanel = findViewById<View>(R.id.sidePanel)
         ViewCompat.setOnApplyWindowInsetsListener(drawer) { _, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
-            root.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            // The keyboard pushes the bottom bars (e.g. the form field bar) up above it.
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+            root.setPadding(bars.left, bars.top, bars.right, maxOf(bars.bottom, ime.bottom))
             sidePanel.setPadding(bars.left, bars.top, 0, bars.bottom)
             insets
         }
 
         setUpMenu()
         annotate.attach(pages, drawer)
+        annotate.confirmSave = forms::confirmSave
+        forms.attach(pages, drawer)
+        forms.onEditingChanged = { editing ->
+            closeFormOnBack.isEnabled = editing
+            navBar.isVisible = !editing && shownReady != null && !viewModel.fullScreen && !viewModel.annotating
+        }
+        onBackPressedDispatcher.addCallback(this, closeFormOnBack)
 
         findViewById<View>(R.id.openButton).setOnClickListener { launchPicker() }
         findViewById<View>(R.id.openUrlButton).setOnClickListener { showOpenUrlDialog() }
@@ -519,6 +540,12 @@ class MainActivity : AppCompatActivity() {
                 R.id.action_rotate -> rotateView()
                 R.id.action_organize -> openOrganizer()
                 R.id.action_annotate -> annotate.start()
+                R.id.action_save -> shownReady?.let { annotate.save(copy = !(it.contentUri == it.uri && canWrite(it.uri)), flatten = false) }
+                R.id.form_autofill -> forms.autofill()
+                R.id.form_profile -> forms.editProfile()
+                R.id.form_highlight -> item.isChecked = forms.toggleHighlight()
+                R.id.form_clear -> forms.clear()
+                R.id.form_flatten -> annotate.save(copy = true, flatten = true)
                 R.id.tool_merge -> tools.showMerge()
                 R.id.tool_split -> tools.showSplit()
                 R.id.tool_crop -> tools.showCrop()
@@ -648,6 +675,7 @@ class MainActivity : AppCompatActivity() {
             toolbar.menu.findItem(id).isVisible = ready != null
         }
         toolbar.menu.findItem(R.id.action_annotate).isVisible = ready != null && !viewModel.annotating
+        toolbar.menu.findItem(R.id.form_highlight).isChecked = ProfileStore(this).highlightFields
         toolbar.menu.findItem(R.id.action_close).isVisible = ready != null
         toolbar.title = ready?.name ?: getString(R.string.app_name)
         if (ready != null) {
@@ -680,7 +708,13 @@ class MainActivity : AppCompatActivity() {
             sideTabs.getTabAt(TAB_PAGES)?.select()
             showSideTab(TAB_PAGES)
             updateBookmarkButton()
+            shownSession?.listeners?.remove(saveButtonListener)
+            shownSession = ready?.annotations
+            shownSession?.listeners?.add(saveButtonListener)
             annotate.bind(ready)
+            forms.bind(ready)
+            toolbar.menu.findItem(R.id.action_form).isVisible = forms.hasForm
+            updateSaveButton()
         }
 
         if (state is ReaderState.Error) {
@@ -789,6 +823,7 @@ class MainActivity : AppCompatActivity() {
             it.sepiaPages = settings.theme == AppTheme.SEPIA
             it.highlightProvider = ::highlightsFor
             it.annotationLayer = annotate
+            it.formLayer = forms
             it.rotation = viewModel.viewRotation
         }
         pages.adapter = adapter
@@ -970,6 +1005,7 @@ class MainActivity : AppCompatActivity() {
             textSelection.clear()
             return
         }
+        if (!annotate.isActive && forms.onTap(x, y)) return
         if (annotate.onTap(x, y)) return
         val hit = pages.pageViewAt(x, y)
         val structure = shownReady?.structure
@@ -1000,6 +1036,12 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    private var shownSession: AnnotationSession? = null
+
+    private fun updateSaveButton() {
+        toolbar.menu.findItem(R.id.action_save)?.isVisible = shownSession?.hasChanges == true
     }
 
     // --- Annotate mode -------------------------------------------------------------------------

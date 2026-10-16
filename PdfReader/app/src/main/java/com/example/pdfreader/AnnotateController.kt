@@ -1015,8 +1015,13 @@ class AnnotateController(
 
     // --- Saving ------------------------------------------------------------------------------
 
+    /** Asked before saving, e.g. to point out unfilled required form fields; runs its argument to go ahead. */
+    var confirmSave: (proceed: () -> Unit) -> Unit = { it() }
+
     /** Saves into the file itself, or (with [copy]) into a new file chosen by the user. */
-    fun save(copy: Boolean, flatten: Boolean) {
+    fun save(copy: Boolean, flatten: Boolean) = confirmSave { saveNow(copy, flatten) }
+
+    private fun saveNow(copy: Boolean, flatten: Boolean) {
         val ready = ready ?: return
         val session = ready.annotations ?: return
         if (!copy && !flatten && canOverwrite(ready)) {

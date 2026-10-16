@@ -3,6 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item android:id="@+id/action_open" android:icon="@drawable/ic_folder_open" android:title="@string/open_pdf" app:showAsAction="ifRoom" />
     <item android:id="@+id/action_search" android:icon="@drawable/ic_search" android:title="@string/search" app:showAsAction="ifRoom" />
+    <item android:id="@+id/action_save" android:icon="@drawable/ic_save" android:title="@string/save_changes" android:visible="false" app:showAsAction="ifRoom" />
     <item android:id="@+id/action_annotate" android:icon="@drawable/ic_edit" android:title="@string/annotate" app:showAsAction="ifRoom" />
     <item android:id="@+id/action_bookmark" android:icon="@drawable/ic_bookmark_border" android:title="@string/add_bookmark" app:showAsAction="ifRoom" />
     <item android:id="@+id/action_open_url" android:title="@string/open_url" app:showAsAction="never" />
@@ -29,6 +30,15 @@
     </item>
     <item android:id="@+id/action_rotate" android:title="@string/rotate_view" app:showAsAction="never" />
     <item android:id="@+id/action_full_screen" android:title="@string/full_screen" app:showAsAction="never" />
+    <item android:id="@+id/action_form" android:title="@string/form_menu" android:visible="false" app:showAsAction="never">
+        <menu>
+            <item android:id="@+id/form_autofill" android:title="@string/form_autofill" />
+            <item android:id="@+id/form_profile" android:title="@string/form_profile" />
+            <item android:id="@+id/form_highlight" android:checkable="true" android:title="@string/form_highlight" />
+            <item android:id="@+id/form_clear" android:title="@string/form_clear" />
+            <item android:id="@+id/form_flatten" android:title="@string/save_flattened_copy" />
+        </menu>
+    </item>
     <item android:id="@+id/action_organize" android:title="@string/organize_pages" app:showAsAction="never" />
     <item android:id="@+id/action_tools" android:title="@string/tools_menu" app:showAsAction="never">
         <menu>

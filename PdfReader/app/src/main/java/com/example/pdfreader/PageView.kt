@@ -12,6 +12,8 @@ import android.graphics.DashPathEffect
 import android.graphics.Matrix
 import com.example.pdfreader.core.Annotation
 import com.example.pdfreader.core.AnnotationTransform
+import com.example.pdfreader.core.FieldKind
+import com.example.pdfreader.core.FormField
 import com.example.pdfreader.core.PageRotation
 
 /**
@@ -59,6 +61,18 @@ class PageView(context: Context) : AppCompatImageView(context) {
     }
 
     var annotationLayer: AnnotationLayer? = null
+
+    /** What [formLayer] provides: the page's form fields and the values typed into them. */
+    interface FormLayer {
+        fun fieldsOn(page: Int): List<FormField>
+        /** The value to draw over a field, or null when the rendered page already shows it. */
+        fun pendingValue(field: FormField): String?
+        val activeField: FormField?
+        /** Tint fillable fields so they are easy to find. */
+        val highlightFields: Boolean
+    }
+
+    var formLayer: FormLayer? = null
 
     /** Radius of the resize handle drawn on the selected annotation, in view pixels. */
     val handleRadius: Float = 11 * resources.displayMetrics.density
@@ -131,6 +145,78 @@ class PageView(context: Context) : AppCompatImageView(context) {
         return frame
     }
 
+    private val fieldTint = Paint().apply { color = Color.argb(40, 33, 150, 243) }
+    private val fieldCover = Paint().apply { color = Color.WHITE }
+    private val fieldText = android.text.TextPaint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.BLACK }
+    private val fieldMark = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.BLACK
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+    }
+    private val fieldDot = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.BLACK }
+    private val activeFrame = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        color = Color.rgb(33, 150, 243)
+        strokeWidth = 2 * resources.displayMetrics.density
+    }
+
+    /** Form fields: a tint on fillable ones, values typed but not saved yet, the active field. */
+    private fun drawForm(canvas: Canvas) {
+        val layer = formLayer ?: return
+        val fields = layer.fieldsOn(page)
+        if (fields.isEmpty()) return
+        val active = layer.activeField
+        for (f in fields) {
+            if (f.kind == FieldKind.BUTTON) continue
+            val r = toLocalRect(RectF(f.box.left, f.box.top, f.box.right, f.box.bottom))
+            val value = layer.pendingValue(f)
+            if (value != null) {
+                // The rendered page shows the old value; paint the new one over it.
+                canvas.drawRect(r, fieldCover)
+                drawFieldValue(canvas, f, value, r)
+            }
+            if (layer.highlightFields && !f.readOnly) canvas.drawRect(r, fieldTint)
+            if (active != null && active.name == f.name && active.page == f.page && active.box == f.box) {
+                canvas.drawRect(RectF(r).apply { inset(-activeFrame.strokeWidth, -activeFrame.strokeWidth) }, activeFrame)
+            }
+        }
+    }
+
+    private fun drawFieldValue(canvas: Canvas, f: FormField, value: String, r: RectF) {
+        when (f.kind) {
+            FieldKind.CHECKBOX -> if (value.isNotEmpty()) {
+                val s = minOf(r.width(), r.height())
+                fieldMark.strokeWidth = s * 0.12f
+                val cx = r.centerX()
+                val cy = r.centerY()
+                val path = android.graphics.Path().apply {
+                    moveTo(cx - s * 0.3f, cy)
+                    lineTo(cx - s * 0.08f, cy + s * 0.25f)
+                    lineTo(cx + s * 0.32f, cy - s * 0.28f)
+                }
+                canvas.drawPath(path, fieldMark)
+            }
+            FieldKind.RADIO -> if (value.isNotEmpty()) canvas.drawCircle(r.centerX(), r.centerY(), minOf(r.width(), r.height()) * 0.25f, fieldDot)
+            else -> {
+                if (value.isEmpty()) return
+                val pad = r.height() * 0.1f
+                fieldText.textSize = if (f.multiline) minOf(12f * scale, r.height() * 0.8f) else (r.height() * 0.65f).coerceAtMost(14f * scale)
+                canvas.save()
+                canvas.clipRect(r)
+                if (f.multiline) {
+                    val layout = android.text.StaticLayout.Builder.obtain(value, 0, value.length, fieldText, (r.width() - 2 * pad).toInt().coerceAtLeast(1)).build()
+                    canvas.translate(r.left + pad, r.top + pad)
+                    layout.draw(canvas)
+                } else {
+                    val baseline = r.centerY() - (fieldText.descent() + fieldText.ascent()) / 2
+                    canvas.drawText(value, r.left + pad * 2, baseline, fieldText)
+                }
+                canvas.restore()
+            }
+        }
+    }
+
     private fun drawAnnotations(canvas: Canvas) {
         val layer = annotationLayer ?: return
         val items = layer.annotationsOn(page)
@@ -176,6 +262,7 @@ class PageView(context: Context) : AppCompatImageView(context) {
             canvas.drawBitmap(it, null, detailRect, detailPaint)
         }
         if (pageRotation == null) return
+        drawForm(canvas)
         drawAnnotations(canvas)
         for (rect in highlights) drawMapped(canvas, rect, highlightPaint)
         for (rect in currentHighlights) drawMapped(canvas, rect, currentPaint)

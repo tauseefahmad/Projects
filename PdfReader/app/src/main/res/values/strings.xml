@@ -239,7 +239,7 @@
     <string name="save_changes_title">Save annotations?</string>
     <string name="save_changes_message">Your annotations are kept as a draft on this device until you save them into the PDF.</string>
     <string name="not_now">Not now</string>
-    <string name="restore_draft_title">Unsaved annotations</string>
+    <string name="restore_draft_title">Unsaved changes</string>
     <string name="annotations_unavailable">This file’s annotations can’t be edited</string>
     <string name="note_hint">Comment</string>
     <string name="text_hint">Text</string>
@@ -252,12 +252,49 @@
     <string name="annotated_file_name">%1$s (annotated).pdf</string>
     <string name="flattened_file_name">%1$s (flattened).pdf</string>
     <plurals name="restore_draft_message">
-        <item quantity="one">You have %d unsaved annotation for this file from last time. Restore it?</item>
-        <item quantity="other">You have %d unsaved annotations for this file from last time. Restore them?</item>
+        <item quantity="one">You have %d unsaved change (annotations or form entries) for this file from last time. Restore it?</item>
+        <item quantity="other">You have %d unsaved changes (annotations or form entries) for this file from last time. Restore them?</item>
     </plurals>
     <string-array name="palette_names">
         <item>Yellow</item><item>Light green</item><item>Light blue</item><item>Pink</item>
         <item>Red</item><item>Blue</item><item>Green</item><item>Purple</item>
         <item>Orange</item><item>Black</item><item>Gray</item><item>White</item>
     </string-array>
+    <string name="previous_field">Previous field</string>
+    <string name="next_field">Next field</string>
+    <string name="pick_date">Pick a date</string>
+    <string name="save_changes">Save changes</string>
+    <string name="form_menu">Form</string>
+    <string name="form_autofill">Fill from my details</string>
+    <string name="form_profile">My details…</string>
+    <string name="form_highlight">Highlight fields</string>
+    <string name="form_clear">Clear form</string>
+    <string name="form_clear_message">Clear every field you filled in since the file was last saved?</string>
+    <string name="form_filled">Filled %1$d fields from your details</string>
+    <string name="form_nothing_to_fill">No empty fields match your details</string>
+    <string name="form_profile_empty">Add your details first</string>
+    <string name="form_problems_title">Check the form</string>
+    <string name="form_problems_message">Some fields need attention:
+
+%1$s</string>
+    <string name="save_anyway">Save anyway</string>
+    <string name="review">Review</string>
+    <string name="field_required">Required</string>
+    <string name="field_too_long">Too long</string>
+    <string name="field_not_number">Enter a number</string>
+    <string name="field_not_email">Enter an email address</string>
+    <string name="field_not_phone">Enter a phone number</string>
+    <string name="field_not_date">Enter a date like %1$s</string>
+    <string name="profile_first_name">First name</string>
+    <string name="profile_last_name">Last name</string>
+    <string name="profile_street">Street and number</string>
+    <string name="profile_postal_code">Postal code</string>
+    <string name="profile_city">City</string>
+    <string name="profile_country">Country</string>
+    <string name="profile_email">Email</string>
+    <string name="profile_phone">Phone</string>
+    <string name="profile_birth_date">Date of birth</string>
+    <string name="profile_tax_id">Tax ID</string>
+    <string name="profile_company">Company</string>
+    <string name="field_read_only">This field can’t be changed</string>
 </resources>

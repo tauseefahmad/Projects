@@ -117,7 +117,7 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
                 // If the stripped copy couldn't be used, the file's annotations stay as they are
                 // and can't be edited (saving would otherwise drop them).
                 val session = if (loaded.renderFile != null && shown === document) null else AnnotationSession(
-                    getApplication(), draftScope, uri, loaded.annotations, loaded.draft,
+                    getApplication(), draftScope, uri, loaded.annotations, loaded.draft, loaded.formFields,
                 )
                 val recent = recentFiles.find(uri)
                 val page = (recent?.page ?: 0).coerceIn(0, (shown.pageCount - 1).coerceAtLeast(0))

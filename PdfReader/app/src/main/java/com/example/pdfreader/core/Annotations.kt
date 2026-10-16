@@ -290,8 +290,19 @@ object Geometry {
     }
 }
 
+/** Unsaved edits of a document: all its annotations, and the form values that were changed. */
+@Serializable
+data class EditDraft(val annotations: List<Annotation> = emptyList(), val form: Map<String, String> = emptyMap()) {
+    /** How many things a restore would bring back (for the prompt). */
+    val size: Int get() = annotations.size + form.size
+}
+
 /** JSON for saving unsaved annotations (drafts) locally. */
 object AnnotationJson {
+    fun encodeDraft(draft: EditDraft): String = json.encodeToString(EditDraft.serializer(), draft)
+
+    fun decodeDraft(text: String): EditDraft? = runCatching { json.decodeFromString(EditDraft.serializer(), text) }.getOrNull()
+
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = false }
 
     fun encode(items: List<Annotation>): String = json.encodeToString(kotlinx.serialization.builtins.ListSerializer(Annotation.serializer()), items)
