@@ -168,21 +168,33 @@ class MainActivity : AppCompatActivity() {
         uri.authority == "$packageName.files" ||
             checkCallingOrSelfUriPermission(uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION) == android.content.pm.PackageManager.PERMISSION_GRANTED
 
+    private fun currentDocument() = shownReady?.let {
+        ToolsController.CurrentDocument(
+            it.uri, it.contentUri, it.name, it.contentUri == it.uri && canWrite(it.uri), it.document.pageCount,
+            isEncrypted = it.contentUri != it.uri, canWriteOriginal = canWrite(it.uri),
+        )
+    }
+
+    private fun reloadCurrent() {
+        viewModel.updatePage(currentPage())
+        viewModel.reload()
+    }
+
     private val tools = ToolsController(
         activity = this,
-        current = {
-            shownReady?.let {
-                ToolsController.CurrentDocument(
-                    it.uri, it.contentUri, it.name, it.contentUri == it.uri && canWrite(it.uri), it.document.pageCount,
-                    isEncrypted = it.contentUri != it.uri, canWriteOriginal = canWrite(it.uri),
-                )
-            }
-        },
+        current = { currentDocument() },
         openResult = { uri, name -> viewModel.open(uri, name) },
-        reloadCurrent = {
-            viewModel.updatePage(currentPage())
-            viewModel.reload()
-        },
+        reloadCurrent = { reloadCurrent() },
+    )
+
+    /** Compress, export, OCR, pictures and camera to PDF, batch (phase 5). */
+    internal val convert = ConvertController(
+        activity = this,
+        current = { currentDocument() },
+        pageText = { page -> shownReady?.structure?.pageTextWithPositions(page) ?: PageText.EMPTY },
+        currentPage = { currentPage() },
+        openResult = { uri, name -> viewModel.open(uri, name) },
+        reloadCurrent = { reloadCurrent() },
     )
 
     private val annotate = AnnotateController(
@@ -538,6 +550,12 @@ class MainActivity : AppCompatActivity() {
         toolbar.setOnMenuItemClickListener { item ->
             when (item.itemId) {
                 R.id.action_open -> launchPicker()
+                R.id.action_images_to_pdf -> convert.pickImagesForPdf()
+                R.id.action_scan -> convert.scan()
+                R.id.action_batch -> convert.showBatch()
+                R.id.tool_compress -> convert.showCompress()
+                R.id.tool_ocr -> convert.showOcr()
+                R.id.tool_export -> convert.showExport()
                 R.id.action_open_url -> showOpenUrlDialog()
                 R.id.action_go_to_page -> showGoToPageDialog()
                 R.id.action_bookmark -> toggleBookmark()

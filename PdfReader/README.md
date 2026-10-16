@@ -64,6 +64,28 @@ tests that run on an Android emulator in CI before a build is published.
 
 Not included yet: sending a document to others for signature (needs a server) and certificate-based digital signatures (PAdES).
 
+### Conversion, OCR and compression
+
+| Feature | What you get |
+| --- | --- |
+| OCR | *Tools → Recognize text*: scanned pages become searchable and selectable (invisible text layer over the words); English, German and other Latin-script languages; sideways and upside-down pages are detected; runs on the phone |
+| Scan | *Scan document*: camera scanner with edge detection, perspective and color correction, then OCR and compression in one step |
+| Compress | High quality / balanced / smallest presets; shows the size before and after |
+| Export | Pages as PNG or JPG (72–300 dpi, zip for several pages); text, Markdown, HTML or Word (text only); the table on a page as CSV |
+| Pictures to PDF | One page per picture (JPG, PNG, WebP, HEIC), turned the right way up |
+| Batch | Compress, OCR or clean many files at once into a folder you choose |
+
+### Security and privacy
+
+| Feature | What you get |
+| --- | --- |
+| Passwords | AES-256 open password; restrict printing, copying and editing with a permissions password; remove a password you know |
+| Redaction | Draw areas or find IBANs, emails, phone numbers or any words; on saving, redacted pages are rebuilt as pictures so the removed text is gone from the file, not just covered |
+| Hidden data | See and remove document information, XMP metadata, attached files and scripts |
+| Privacy | Everything runs on the phone; *Offline only* blocks the one online feature (Open from URL) |
+
+Needs a server, so not included: Office documents ↔ PDF (except the text-only Word export), PDF/A conversion.
+
 ### Keyboard shortcuts
 
 | Keys | Action |

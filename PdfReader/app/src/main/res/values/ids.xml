@@ -23,4 +23,5 @@
     <item name="protect_restrict_check" type="id" />
     <item name="protect_owner_input" type="id" />
     <item name="unprotect_password_input" type="id" />
+    <item name="convert_progress" type="id" />
 </resources>
