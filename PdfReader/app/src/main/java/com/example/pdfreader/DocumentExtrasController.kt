@@ -376,8 +376,13 @@ class DocumentExtrasController(
                         copy.delete()
                     }
                 }
-            } catch (e: Exception) {
-                Toast.makeText(context, R.string.tool_failed, Toast.LENGTH_LONG).show()
+            } catch (e: Throwable) {
+                android.util.Log.w("PdfReader", "Checking signatures failed", e)
+                dialog = MaterialAlertDialogBuilder(context)
+                    .setTitle(R.string.dsig_check_title)
+                    .setMessage(context.getString(R.string.dsig_check_failed, e.message ?: e.javaClass.simpleName))
+                    .setPositiveButton(R.string.close, null)
+                    .show()
                 return@launch
             }
             val format = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
