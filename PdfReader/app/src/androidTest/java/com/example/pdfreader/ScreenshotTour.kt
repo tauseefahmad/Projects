@@ -183,8 +183,9 @@ class ScreenshotTour {
             }
         } }
 
-        // German interface.
-        scene("german") { openUri(uri).use { scenario ->
+        // German interface, on a fresh file (the rental agreement would offer to restore its unsaved notes).
+        val german = TestPdfs.createWithText(context, "Mietvertrag.pdf", pages)
+        scene("german") { openUri(german).use { scenario ->
             current = scenario
             step("german-interface") {
                 waitForPageLabel("1 / 4", 20_000)
@@ -197,8 +198,9 @@ class ScreenshotTour {
         InstrumentationRegistry.getInstrumentation().runOnMainSync { AppCompatDelegate.setApplicationLocales(LocaleListCompat.getEmptyLocaleList()) }
         current = null
 
-        File(context.cacheDir, "tour.txt").writeText(log.toString())
-        shell("cp ${File(context.cacheDir, "tour.txt").path} $dir/tour.txt")
+        // App-specific external storage, which the shell can read (unlike the cache folder).
+        val report = File(context.getExternalFilesDir(null), "tour.txt").apply { writeText(log.toString()) }
+        shell("cp ${report.path} $dir/tour.txt")
         android.util.Log.i("ScreenshotTour", "\n$log")
         println(log)
         // Keep the uri helper referenced for FileProvider-based opens.
