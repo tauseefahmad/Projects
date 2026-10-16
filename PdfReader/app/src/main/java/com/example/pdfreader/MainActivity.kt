@@ -226,7 +226,9 @@ class MainActivity : AppCompatActivity() {
     /** Version history, compare, e-invoice data, accessibility check (phase 8). */
     internal val extras = DocumentExtrasController(
         this, { currentDocument() }, convert, { page, phrase -> showPassage(page, phrase) }, { uri, name -> viewModel.open(uri, name) },
-    ) { reloadCurrent() }
+        reloadCurrent = { reloadCurrent() },
+        hasUnsavedChanges = { shownReady?.annotations?.hasChanges == true },
+    )
 
     private val annotate = AnnotateController(
         activity = this,
@@ -598,6 +600,8 @@ class MainActivity : AppCompatActivity() {
                 R.id.action_versions -> extras.showVersions()
                 R.id.action_compare -> extras.showCompare()
                 R.id.action_accessibility -> extras.showAccessibility()
+                R.id.action_sign_digitally -> extras.showSignDigitally()
+                R.id.action_check_signatures -> extras.showSignatures()
                 R.id.action_open_url -> showOpenUrlDialog()
                 R.id.action_go_to_page -> showGoToPageDialog()
                 R.id.action_bookmark -> toggleBookmark()

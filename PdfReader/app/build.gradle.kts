@@ -5,6 +5,12 @@ plugins {
 }
 
 android {
+    packaging {
+        resources {
+            // Both BouncyCastle jars carry this file.
+            excludes += setOf("META-INF/versions/9/OSGI-INF/MANIFEST.MF")
+        }
+    }
     namespace = "com.example.pdfreader"
     compileSdk = 35
 
@@ -68,6 +74,9 @@ dependencies {
     // On-device text recognition (Latin script) and the camera document scanner.
     implementation("com.google.mlkit:text-recognition:16.0.1")
     implementation("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0-beta1")
+    // Certificate-based digital signatures (CMS / PAdES).
+    implementation("org.bouncycastle:bcprov-jdk18on:1.78.1")
+    implementation("org.bouncycastle:bcpkix-jdk18on:1.78.1")
 
     testImplementation("junit:junit:4.13.2")
 

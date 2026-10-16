@@ -3,6 +3,7 @@ package com.example.pdfreader
 import android.net.Uri
 import android.text.format.DateUtils
 import android.text.format.Formatter
+import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -35,6 +36,8 @@ class DocumentExtrasController(
     private val showPassage: (page: Int, phrase: String) -> Unit,
     private val openResult: (Uri, String) -> Unit,
     private val reloadCurrent: () -> Unit,
+    /** Whether the open document has unsaved annotations or form entries. */
+    private val hasUnsavedChanges: () -> Boolean = { false },
 ) {
     private val context get() = activity
 
@@ -214,6 +217,192 @@ class DocumentExtrasController(
             }
             dialog = MaterialAlertDialogBuilder(context)
                 .setTitle(R.string.accessibility_title)
+                .setView(ScrollView(context).apply { addView(list) })
+                .setPositiveButton(R.string.close, null)
+                .show()
+        }
+    }
+
+    // --- Digital signatures -------------------------------------------------------------------------
+
+    private val importCertificate = activity.registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) askImportPassword(uri)
+    }
+
+    /** Signs the document with a certificate (PAdES), after choosing or creating one. */
+    fun showSignDigitally() {
+        if (current() == null) return
+        if (hasUnsavedChanges()) {
+            Toast.makeText(context, R.string.dsig_save_first, Toast.LENGTH_LONG).show()
+            return
+        }
+        val stored = DigitalSignatures.stored(context)
+        val labels = stored.map { it.nameWithoutExtension } + listOf(context.getString(R.string.dsig_create), context.getString(R.string.dsig_import))
+        dialog = MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.dsig_choose)
+            .setItems(labels.toTypedArray()) { _, which ->
+                when {
+                    which < stored.size -> askSignDetails(stored[which])
+                    which == stored.size -> createCertificate()
+                    else -> importCertificate.launch(arrayOf("application/x-pkcs12", "application/octet-stream", "*/*"))
+                }
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun field(hint: Int, password: Boolean = false, id: Int = View.NO_ID) = android.widget.EditText(context).apply {
+        this.id = id
+        setHint(hint)
+        isSingleLine = true
+        inputType = if (password) android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD else android.text.InputType.TYPE_CLASS_TEXT
+    }
+
+    private fun form(vararg views: View) = list().apply { views.forEach(::addView) }
+
+    private fun createCertificate() {
+        val name = field(R.string.dsig_name, id = R.id.dsig_name_input).apply { setText(ProfileStore(context).profile.fullName) }
+        val email = field(R.string.dsig_email).apply { setText(ProfileStore(context).profile.email) }
+        val password = field(R.string.dsig_new_password, password = true, id = R.id.dsig_new_password_input)
+        val d = MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.dsig_create)
+            .setView(ScrollView(context).apply { addView(form(note(context.getString(R.string.dsig_create_note)), name, email, password)) })
+            .setPositiveButton(R.string.dsig_create_action, null)
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+        dialog = d
+        d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            if (name.text.isBlank()) { name.error = context.getString(R.string.field_required); return@setOnClickListener }
+            if (password.text.length < 4) { password.error = context.getString(R.string.dsig_password_short); return@setOnClickListener }
+            d.dismiss()
+            val pw = password.text.toString().toCharArray()
+            activity.lifecycleScope.launch {
+                val file = try {
+                    withContext(Dispatchers.Default) { DigitalSignatures.createPersonal(context, name.text.toString().trim(), email.text.toString().trim(), pw) }
+                } catch (e: Exception) {
+                    Toast.makeText(context, R.string.tool_failed, Toast.LENGTH_LONG).show()
+                    return@launch
+                }
+                askSignDetails(file, pw)
+            }
+        }
+    }
+
+    private fun askImportPassword(uri: Uri) {
+        val password = field(R.string.dsig_password, password = true)
+        val d = MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.dsig_import)
+            .setView(form(password))
+            .setPositiveButton(R.string.ok, null)
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+        dialog = d
+        d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val pw = password.text.toString().toCharArray()
+            activity.lifecycleScope.launch {
+                val file = withContext(Dispatchers.IO) {
+                    runCatching {
+                        val bytes = context.contentResolver.openInputStream(uri)!!.use { it.readBytes() }
+                        DigitalSignatures.import(context, bytes, pw)
+                    }.getOrNull()
+                }
+                if (file == null) {
+                    password.error = context.getString(R.string.dsig_bad_certificate)
+                } else {
+                    d.dismiss()
+                    askSignDetails(file, pw)
+                }
+            }
+        }
+    }
+
+    /** Asks for the certificate password (unless known), reason and place, then signs. */
+    fun askSignDetails(certificate: File, knownPassword: CharArray? = null) {
+        val doc = current() ?: return
+        val password = field(R.string.dsig_password, password = true, id = R.id.dsig_password_input)
+        val reason = field(R.string.dsig_reason, id = R.id.dsig_reason_input)
+        val location = field(R.string.dsig_location)
+        val views = listOfNotNull(note(context.getString(R.string.dsig_note)), password.takeIf { knownPassword == null }, reason, location)
+        val d = MaterialAlertDialogBuilder(context)
+            .setTitle(context.getString(R.string.dsig_sign_as, certificate.nameWithoutExtension))
+            .setView(ScrollView(context).apply { addView(form(*views.toTypedArray())) })
+            .setPositiveButton(R.string.dsig_sign, null)
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+        dialog = d
+        d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val pw = knownPassword ?: password.text.toString().toCharArray()
+            activity.lifecycleScope.launch {
+                val result = withContext(Dispatchers.IO) {
+                    val identity = runCatching { DigitalSignatures.load(certificate, pw) }.getOrNull() ?: return@withContext null
+                    runCatching {
+                        val source = convert.temp("pdf")
+                        context.contentResolver.openInputStream(doc.contentUri)!!.use { i -> source.outputStream().use { i.copyTo(it) } }
+                        val out = convert.temp("pdf")
+                        try {
+                            out.outputStream().use { DigitalSignatures.sign(context, source, identity, reason.text.toString().trim(), location.text.toString().trim(), it) }
+                        } finally {
+                            source.delete()
+                        }
+                        out
+                    }
+                }
+                when {
+                    result == null -> password.error = context.getString(R.string.password_wrong)
+                    result.isFailure -> {
+                        d.dismiss()
+                        Toast.makeText(context, R.string.dsig_failed, Toast.LENGTH_LONG).show()
+                    }
+                    else -> {
+                        d.dismiss()
+                        convert.replaceOrCopy(doc, result.getOrThrow())
+                    }
+                }
+            }
+        }
+    }
+
+    /** Lists the digital signatures in the document and whether each is intact. */
+    fun showSignatures() {
+        val doc = current() ?: return
+        activity.lifecycleScope.launch {
+            val checks = try {
+                withContext(Dispatchers.IO) {
+                    val copy = convert.temp("pdf")
+                    try {
+                        context.contentResolver.openInputStream(doc.uri)!!.use { i -> copy.outputStream().use { i.copyTo(it) } }
+                        DigitalSignatures.verify(context, copy)
+                    } finally {
+                        copy.delete()
+                    }
+                }
+            } catch (e: Exception) {
+                Toast.makeText(context, R.string.tool_failed, Toast.LENGTH_LONG).show()
+                return@launch
+            }
+            val format = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
+            val list = list()
+            if (checks.isEmpty()) list.addView(note(context.getString(R.string.dsig_none)))
+            for (c in checks) {
+                val status = when {
+                    !c.intact -> context.getString(R.string.dsig_broken)
+                    !c.coversWholeFile -> context.getString(R.string.dsig_changed_after)
+                    c.selfSigned -> context.getString(R.string.dsig_valid_self)
+                    else -> context.getString(R.string.dsig_valid)
+                }
+                list.addView(TextView(context).apply {
+                    text = listOfNotNull(
+                        (if (c.intact && c.coversWholeFile) "✓ " else "✗ ") + c.signer,
+                        c.signedAt?.let { format.format(it.time) },
+                        c.reason.takeIf { it.isNotBlank() },
+                        status,
+                    ).joinToString("\n")
+                    setTextColor(if (c.intact && c.coversWholeFile) 0xFF2E7D32.toInt() else 0xFFC62828.toInt())
+                    setPadding(0, (8 * density).toInt(), 0, (8 * density).toInt())
+                })
+            }
+            dialog = MaterialAlertDialogBuilder(context)
+                .setTitle(R.string.dsig_check_title)
                 .setView(ScrollView(context).apply { addView(list) })
                 .setPositiveButton(R.string.close, null)
                 .show()
