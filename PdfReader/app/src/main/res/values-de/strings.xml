@@ -540,4 +540,5 @@
     <string name="dsig_valid_self">Seit dem Signieren unverändert (persönliches Zertifikat: Identität nicht bestätigt)</string>
     <string name="dsig_changed_after">Die Signatur ist intakt, aber die Datei wurde nach dem Signieren geändert</string>
     <string name="dsig_broken">Ungültig: Das Dokument wurde verändert oder die Signatur ist beschädigt</string>
+    <string name="files_menu">Dateien</string>
 </resources>

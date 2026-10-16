@@ -130,7 +130,12 @@ data class LibraryHit(val uri: Uri, val name: String, val page: Int, val snippet
 class LibraryIndex private constructor(context: Context) : SQLiteOpenHelper(context, "library-index.db", null, 1) {
 
     override fun onCreate(db: SQLiteDatabase) {
-        db.execSQL("CREATE VIRTUAL TABLE pages USING fts4(uri, name, page, body, tokenize=unicode61)")
+        try {
+            db.execSQL("CREATE VIRTUAL TABLE pages USING fts4(uri, name, page, body, tokenize=unicode61)")
+        } catch (e: android.database.SQLException) {
+            // Older SQLite builds lack the Unicode tokenizer.
+            db.execSQL("CREATE VIRTUAL TABLE pages USING fts4(uri, name, page, body)")
+        }
         db.execSQL("CREATE TABLE docs (uri TEXT PRIMARY KEY, stamp TEXT)")
     }
 
@@ -148,7 +153,7 @@ class LibraryIndex private constructor(context: Context) : SQLiteOpenHelper(cont
             db.delete("pages", "uri = ?", arrayOf(uri.toString()))
             pages.forEachIndexed { i, text ->
                 if (text.isBlank()) return@forEachIndexed
-                db.insert("pages", null, ContentValues().apply {
+                db.insertOrThrow("pages", null, ContentValues().apply {
                     put("uri", uri.toString())
                     put("name", name)
                     put("page", i.toString())
@@ -163,6 +168,12 @@ class LibraryIndex private constructor(context: Context) : SQLiteOpenHelper(cont
         } finally {
             db.endTransaction()
         }
+    }
+
+    /** Forgets everything (e.g. for tests). */
+    fun clear() {
+        writableDatabase.delete("pages", null, null)
+        writableDatabase.delete("docs", null, null)
     }
 
     fun remove(uri: Uri) {

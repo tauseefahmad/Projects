@@ -140,18 +140,20 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
     private fun recordInLibrary(uri: Uri, name: String, contentUri: Uri, pageCount: Int) {
         val app = getApplication<Application>()
         viewModelScope.launch(Dispatchers.IO) {
-            runCatching {
+            try {
                 val size = LibraryStore.sizeOf(app, uri)
                 LibraryStore(app).opened(uri, name, pageCount, size)
                 RecentFilesWidget.update(app)
                 // Text of password-protected files stays out of the index.
-                if (contentUri != uri || pageCount > 1000) return@runCatching
+                if (contentUri != uri || pageCount > 1000) return@launch
                 val index = LibraryIndex.get(app)
                 val stamp = "$size/$pageCount"
                 if (!index.isIndexed(uri, stamp)) {
                     val texts = SecurityTools.load(app, contentUri).use { ConvertTools.pageTexts(it) }
                     index.index(uri, name, texts, stamp)
                 }
+            } catch (e: Exception) {
+                android.util.Log.w("PdfReader", "Library indexing failed for $uri", e)
             }
         }
     }

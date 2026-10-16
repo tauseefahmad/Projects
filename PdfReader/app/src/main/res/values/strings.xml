@@ -540,4 +540,5 @@
     <string name="dsig_valid_self">Unchanged since signing (personal certificate: identity not confirmed)</string>
     <string name="dsig_changed_after">The signature is intact, but the file was changed after signing</string>
     <string name="dsig_broken">Invalid: the document was altered or the signature is damaged</string>
+    <string name="files_menu">Files</string>
 </resources>

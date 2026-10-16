@@ -42,7 +42,7 @@ class LibraryTest {
         ReaderTestSupport.resetAppState()
         context.getSharedPreferences("library", android.content.Context.MODE_PRIVATE).edit().clear().commit()
         File(context.filesDir, "versions").deleteRecursively()
-        context.deleteDatabase("library-index.db")
+        LibraryIndex.get(context).clear()
         PDFBoxResourceLoader.init(context)
     }
 

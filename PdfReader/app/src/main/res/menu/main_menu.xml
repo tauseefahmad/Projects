@@ -6,13 +6,7 @@
     <item android:id="@+id/action_save" android:icon="@drawable/ic_save" android:title="@string/save_changes" android:visible="false" app:showAsAction="ifRoom" />
     <item android:id="@+id/action_annotate" android:icon="@drawable/ic_edit" android:title="@string/annotate" app:showAsAction="ifRoom" />
     <item android:id="@+id/action_sign" android:icon="@drawable/ic_signature" android:title="@string/fill_and_sign" app:showAsAction="never" />
-    <item android:id="@+id/action_build_form" android:title="@string/build_form" app:showAsAction="never" />
     <item android:id="@+id/action_bookmark" android:icon="@drawable/ic_bookmark_border" android:title="@string/add_bookmark" app:showAsAction="ifRoom" />
-    <item android:id="@+id/action_open_url" android:title="@string/open_url" app:showAsAction="never" />
-    <item android:id="@+id/action_library" android:title="@string/library_title" app:showAsAction="never" />
-    <item android:id="@+id/action_scan" android:title="@string/scan_title" app:showAsAction="never" />
-    <item android:id="@+id/action_images_to_pdf" android:title="@string/images_to_pdf" app:showAsAction="never" />
-    <item android:id="@+id/action_batch" android:title="@string/batch_menu" app:showAsAction="never" />
     <item android:id="@+id/action_go_to_page" android:title="@string/go_to_page" app:showAsAction="never" />
     <item android:id="@+id/action_zoom" android:title="@string/zoom_menu" app:showAsAction="never">
         <menu>
@@ -57,6 +51,7 @@
             <item android:id="@+id/tool_ocr" android:title="@string/ocr_title" />
             <item android:id="@+id/tool_compress" android:title="@string/compress_title" />
             <item android:id="@+id/tool_export" android:title="@string/export_title" />
+            <item android:id="@+id/action_build_form" android:title="@string/build_form" />
             <item android:id="@+id/tool_redact" android:title="@string/tool_redact" />
             <item android:id="@+id/tool_protect" android:title="@string/protect_title" />
             <item android:id="@+id/tool_unprotect" android:title="@string/unprotect_title" android:visible="false" />
@@ -101,6 +96,15 @@
                 <item android:id="@+id/action_volume_keys" android:checkable="true" android:title="@string/volume_keys" />
                 <item android:id="@+id/action_offline_only" android:checkable="true" android:title="@string/offline_only" />
             </group>
+        </menu>
+    </item>
+    <item android:id="@+id/action_files" android:title="@string/files_menu" app:showAsAction="never">
+        <menu>
+            <item android:id="@+id/action_library" android:title="@string/library_title" />
+            <item android:id="@+id/action_open_url" android:title="@string/open_url" />
+            <item android:id="@+id/action_scan" android:title="@string/scan_title" />
+            <item android:id="@+id/action_images_to_pdf" android:title="@string/images_to_pdf" />
+            <item android:id="@+id/action_batch" android:title="@string/batch_menu" />
         </menu>
     </item>
     <item android:id="@+id/action_close" android:title="@string/close_document" app:showAsAction="never" />
