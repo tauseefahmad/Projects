@@ -30,6 +30,15 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="com.example.pdfreader.action.OPEN" />
+                <action android:name="com.example.pdfreader.action.SCAN" />
+                <action android:name="com.example.pdfreader.action.LIBRARY" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
 
             <!-- Lets other apps (Files, Downloads, Gmail, browsers) open PDFs with this app. -->
             <intent-filter>
@@ -52,6 +61,23 @@
         <activity
             android:name=".OrganizerActivity"
             android:exported="false" />
+
+        <activity
+            android:name=".LibraryActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+
+        <receiver
+            android:name=".RecentFilesWidget"
+            android:exported="false"
+            android:label="@string/widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/recent_widget" />
+        </receiver>
 
         <!-- Shares files from cache/shared (copies to send, print, or test fixtures). -->
         <provider

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item android:id="@+id/library_layout" android:icon="@drawable/ic_grid" android:title="@string/library_grid" app:showAsAction="ifRoom" />
+    <item android:id="@+id/library_sort" android:title="@string/library_sort" app:showAsAction="never">
+        <menu>
+            <group android:checkableBehavior="single">
+                <item android:id="@+id/sort_recent" android:title="@string/sort_recent" />
+                <item android:id="@+id/sort_name" android:title="@string/sort_name" />
+                <item android:id="@+id/sort_size" android:title="@string/sort_size" />
+            </group>
+        </menu>
+    </item>
+</menu>

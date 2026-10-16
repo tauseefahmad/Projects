@@ -85,6 +85,7 @@ class OrganizerViewModel(application: Application) : AndroidViewModel(applicatio
         val temp = File(app.cacheDir, "organizer-${UUID.randomUUID()}.pdf")
         try {
             temp.outputStream().use { PageAssembler.assemble(app, sources, pages, it) }
+            VersionStore.keep(app, destination)
             // Truncate on write ("wt") so a shorter result doesn't leave old bytes behind.
             val output = app.contentResolver.openOutputStream(destination, "wt") ?: throw IOException("Cannot write $destination")
             output.use { out -> temp.inputStream().use { it.copyTo(out) } }

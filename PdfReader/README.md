@@ -87,6 +87,20 @@ Not included yet: sending a document to others for signature (needs a server) an
 
 These use rules and statistics, not a language model. Free-form AI answers, translation of whole documents and study cards need a cloud AI service and are not included.
 
+### Library and Android integration
+
+| Feature | What you get |
+| --- | --- |
+| Library | Every PDF you opened: favorites, tags, sort by recent/name/size, list or grid |
+| Search all files | Finds words inside every opened file (including OCR'd text) and opens the page with the words highlighted |
+| Version history | Each time the app saves over a file the previous version is kept (up to 10): open, compare or restore |
+| Compare | Lists words added, removed and changed between two PDFs, with pages; export as text |
+| E-invoices | Shows the data of ZUGFeRD / Factur-X / XRechnung invoices attached to a PDF |
+| Accessibility check | Tags, language, title, alt text, real text and Unicode fonts |
+| Android | Home-screen widget with recent files, app shortcuts (Open, Scan, Library), Material You colors, German and English |
+
+Needs a server or accounts, so not included: sync across devices, share links, shared review, REST API. Cloud files (Google Drive, Dropbox, OneDrive) open and save through Android's file picker when their apps are installed.
+
 ### Security and privacy
 
 | Feature | What you get |

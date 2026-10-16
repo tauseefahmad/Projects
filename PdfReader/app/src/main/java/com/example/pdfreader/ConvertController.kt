@@ -92,7 +92,10 @@ class ConvertController(
         activity.lifecycleScope.launch {
             if (doc.canOverwrite) {
                 try {
-                    withContext(Dispatchers.IO) { copy(file, doc.uri) }
+                    withContext(Dispatchers.IO) {
+                        VersionStore.keep(context, doc.uri)
+                        copy(file, doc.uri)
+                    }
                     file.delete()
                     Toast.makeText(context, R.string.saved, Toast.LENGTH_SHORT).show()
                     reloadCurrent()

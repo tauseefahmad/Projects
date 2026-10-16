@@ -1027,7 +1027,10 @@ class AnnotateController(
                 kind = type.kind, name = FormBuilder.uniqueName(name, fieldNames()), format = type.format, options = options, required = required,
             )
             session?.add(field)
-            select(field.id)
+            // Stay in the field tool to add the next field right away.
+            selectedId = field.id
+            updateBar()
+            invalidatePages()
         }
     }
 
@@ -1395,6 +1398,7 @@ class AnnotateController(
                         val temp = File(context.cacheDir, "annotated-${UUID.randomUUID()}.pdf")
                         try {
                             temp.outputStream().use { session.writeTo(ready.contentUri, it, flatten = false) }
+                            VersionStore.keep(context, ready.uri)
                             val output = context.contentResolver.openOutputStream(ready.uri, "wt") ?: throw java.io.IOException("Cannot write")
                             output.use { out -> temp.inputStream().use { it.copyTo(out) } }
                         } finally {

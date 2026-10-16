@@ -9,6 +9,7 @@
     <item android:id="@+id/action_build_form" android:title="@string/build_form" app:showAsAction="never" />
     <item android:id="@+id/action_bookmark" android:icon="@drawable/ic_bookmark_border" android:title="@string/add_bookmark" app:showAsAction="ifRoom" />
     <item android:id="@+id/action_open_url" android:title="@string/open_url" app:showAsAction="never" />
+    <item android:id="@+id/action_library" android:title="@string/library_title" app:showAsAction="never" />
     <item android:id="@+id/action_scan" android:title="@string/scan_title" app:showAsAction="never" />
     <item android:id="@+id/action_images_to_pdf" android:title="@string/images_to_pdf" app:showAsAction="never" />
     <item android:id="@+id/action_batch" android:title="@string/batch_menu" app:showAsAction="never" />
@@ -69,6 +70,7 @@
             <item android:id="@+id/insight_extract" android:title="@string/extract_title" />
             <item android:id="@+id/insight_review" android:title="@string/review_title" />
             <item android:id="@+id/insight_bookmarks" android:title="@string/bookmarks_auto_title" />
+            <item android:id="@+id/insight_einvoice" android:title="@string/einvoice_title" />
         </menu>
     </item>
     <item android:id="@+id/action_document" android:title="@string/document_menu" app:showAsAction="never">
@@ -77,6 +79,9 @@
             <item android:id="@+id/action_print" android:title="@string/print" />
             <item android:id="@+id/action_save_copy" android:title="@string/save_copy" />
             <item android:id="@+id/action_properties" android:title="@string/properties" />
+            <item android:id="@+id/action_versions" android:title="@string/versions_title" />
+            <item android:id="@+id/action_compare" android:title="@string/compare_menu" />
+            <item android:id="@+id/action_accessibility" android:title="@string/accessibility_title" />
             <item android:id="@+id/action_privacy" android:title="@string/privacy_title" />
         </menu>
     </item>

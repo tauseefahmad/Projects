@@ -25,4 +25,5 @@
     <item name="unprotect_password_input" type="id" />
     <item name="convert_progress" type="id" />
     <item name="ask_input" type="id" />
+    <item name="library_tags_input" type="id" />
 </resources>

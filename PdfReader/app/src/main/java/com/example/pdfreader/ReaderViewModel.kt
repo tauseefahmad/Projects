@@ -77,7 +77,7 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
     /** Drafts must be written even while the screen is being torn down, so not viewModelScope. */
     private val draftScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.Main.immediate)
 
-    fun open(uri: Uri, name: String, password: String? = null) {
+    fun open(uri: Uri, name: String, password: String? = null, startPage: Int? = null) {
         val current = _state.value
         if (current is ReaderState.Ready && current.uri == uri) return
         savePage()
@@ -120,10 +120,11 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
                     getApplication(), draftScope, uri, loaded.annotations, loaded.draft, loaded.formFields,
                 )
                 val recent = recentFiles.find(uri)
-                val page = (recent?.page ?: 0).coerceIn(0, (shown.pageCount - 1).coerceAtLeast(0))
+                val page = (startPage ?: recent?.page ?: 0).coerceIn(0, (shown.pageCount - 1).coerceAtLeast(0))
                 zoomToRestore = recent?.zoom
                 currentZoom = recent?.zoom
                 recentFiles.remember(RecentFile(uri, name, page, recent?.zoom))
+                recordInLibrary(uri, name, contentUri, shown.pageCount)
                 currentPage = page
                 ReaderState.Ready(uri, name, shown, PdfStructure(getApplication(), contentUri), contentUri, session)
             } catch (e: PasswordProtectedException) {
@@ -131,6 +132,26 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
             } catch (e: Exception) {
                 recentFiles.remove(uri)
                 ReaderState.Error(R.string.error_open)
+            }
+        }
+    }
+
+    /** Adds the document to the library and indexes its text for searching across files. */
+    private fun recordInLibrary(uri: Uri, name: String, contentUri: Uri, pageCount: Int) {
+        val app = getApplication<Application>()
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                val size = LibraryStore.sizeOf(app, uri)
+                LibraryStore(app).opened(uri, name, pageCount, size)
+                RecentFilesWidget.update(app)
+                // Text of password-protected files stays out of the index.
+                if (contentUri != uri || pageCount > 1000) return@runCatching
+                val index = LibraryIndex.get(app)
+                val stamp = "$size/$pageCount"
+                if (!index.isIndexed(uri, stamp)) {
+                    val texts = SecurityTools.load(app, contentUri).use { ConvertTools.pageTexts(it) }
+                    index.index(uri, name, texts, stamp)
+                }
             }
         }
     }

@@ -497,6 +497,7 @@ class ToolsController(
             }
             if (overwrite) {
                 try {
+                    withContext(Dispatchers.IO) { VersionStore.keep(context, doc.uri) }
                     copyToUri(file, doc.uri)
                     file.delete()
                     Toast.makeText(context, R.string.saved, Toast.LENGTH_SHORT).show()

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widgetRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg"
+    android:orientation="vertical"
+    android:padding="12dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/widget_title"
+            android:textColor="#202124"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/widgetOpen"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/shortcut_open"
+            android:textColor="#1565C0"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/widgetFile1"
+        style="@style/WidgetFile" />
+
+    <TextView
+        android:id="@+id/widgetFile2"
+        style="@style/WidgetFile" />
+
+    <TextView
+        android:id="@+id/widgetFile3"
+        style="@style/WidgetFile" />
+
+    <TextView
+        android:id="@+id/widgetEmpty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="8dp"
+        android:text="@string/widget_empty"
+        android:textColor="#5F6368"
+        android:textSize="13sp" />
+</LinearLayout>

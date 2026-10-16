@@ -156,6 +156,27 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** A text match from the library to highlight once its document has opened. */
+    private var pendingPassage: Triple<Uri, Int, String>? = null
+
+    private val library = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val data = result.data
+        val uri = data?.data
+        if (result.resultCode != RESULT_OK || uri == null) return@registerForActivityResult
+        val page = data.getIntExtra(LibraryActivity.EXTRA_PAGE, -1)
+        val phrase = data.getStringExtra(LibraryActivity.EXTRA_PHRASE)
+        if (shownReady?.uri == uri) {
+            if (page >= 0) {
+                if (phrase.isNullOrBlank()) goToPage(page) else showPassage(page, phrase)
+            }
+        } else {
+            if (page >= 0 && !phrase.isNullOrBlank()) pendingPassage = Triple(uri, page, phrase)
+            viewModel.open(uri, data.getStringExtra(LibraryActivity.EXTRA_NAME) ?: uri.lastPathSegment.orEmpty(), startPage = page.takeIf { it >= 0 })
+        }
+    }
+
+    fun openLibrary() = library.launch(Intent(this, LibraryActivity::class.java))
+
     private val organize = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK && result.data?.getBooleanExtra(OrganizerActivity.EXTRA_RELOAD, false) == true) {
             viewModel.updatePage(currentPage())
@@ -202,6 +223,11 @@ class MainActivity : AppCompatActivity() {
         reloadCurrent = { reloadCurrent() },
     )
 
+    /** Version history, compare, e-invoice data, accessibility check (phase 8). */
+    internal val extras = DocumentExtrasController(
+        this, { currentDocument() }, convert, { page, phrase -> showPassage(page, phrase) }, { uri, name -> viewModel.open(uri, name) },
+    ) { reloadCurrent() }
+
     private val annotate = AnnotateController(
         activity = this,
         viewModelProvider = { viewModel },
@@ -227,6 +253,7 @@ class MainActivity : AppCompatActivity() {
 
     /** For tests: the open document's annotations and the annotate-mode controller. */
     internal val annotationSession: AnnotationSession? get() = shownReady?.annotations
+    internal fun openUriForTest(uri: Uri) = openUri(uri)
     internal val annotateController: AnnotateController get() = annotate
     internal val formController: FormController get() = forms
 
@@ -566,6 +593,11 @@ class MainActivity : AppCompatActivity() {
                 R.id.insight_extract -> insights.showExtract()
                 R.id.insight_review -> insights.showContractReview()
                 R.id.insight_bookmarks -> insights.showAutoBookmarks()
+                R.id.insight_einvoice -> extras.showEInvoice()
+                R.id.action_library -> openLibrary()
+                R.id.action_versions -> extras.showVersions()
+                R.id.action_compare -> extras.showCompare()
+                R.id.action_accessibility -> extras.showAccessibility()
                 R.id.action_open_url -> showOpenUrlDialog()
                 R.id.action_go_to_page -> showGoToPageDialog()
                 R.id.action_bookmark -> toggleBookmark()
@@ -697,6 +729,10 @@ class MainActivity : AppCompatActivity() {
             Intent.ACTION_VIEW -> intent.data?.let(::openUri)
             // "Share" from another app (e.g. a messenger) with a PDF attached.
             Intent.ACTION_SEND -> IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)?.let(::openUri)
+            // App shortcuts (long-press the icon) and the home-screen widget.
+            ACTION_SHORTCUT_OPEN -> window.decorView.post { launchPicker() }
+            ACTION_SHORTCUT_SCAN -> window.decorView.post { convert.scan() }
+            ACTION_SHORTCUT_LIBRARY -> window.decorView.post { openLibrary() }
         }
     }
 
@@ -758,6 +794,10 @@ class MainActivity : AppCompatActivity() {
             shownSession?.listeners?.remove(saveButtonListener)
             shownSession = ready?.annotations
             shownSession?.listeners?.add(saveButtonListener)
+            pendingPassage?.takeIf { it.first == ready?.uri }?.let { (_, page, phrase) ->
+                pendingPassage = null
+                pages.post { showPassage(page, phrase) }
+            }
             annotate.bind(ready)
             forms.bind(ready)
             toolbar.menu.findItem(R.id.action_form).isVisible = forms.hasForm
@@ -1352,6 +1392,9 @@ class MainActivity : AppCompatActivity() {
         const val TAB_ANNOTATIONS = 4
         const val SEARCH_DELAY_MS = 350L
         const val EDGE_TAP_ZONE = 0.25f
+        const val ACTION_SHORTCUT_OPEN = "com.example.pdfreader.action.OPEN"
+        const val ACTION_SHORTCUT_SCAN = "com.example.pdfreader.action.SCAN"
+        const val ACTION_SHORTCUT_LIBRARY = "com.example.pdfreader.action.LIBRARY"
     }
 
     private fun displayName(uri: Uri): String {
