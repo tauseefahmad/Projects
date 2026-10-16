@@ -55,7 +55,7 @@ class ConvertController(
 
     private val savers = listOf(
         "application/pdf", "application/zip", "image/png", "image/jpeg", "text/plain", "text/markdown", "text/html", "text/csv",
-        TextFormat.WORD.mimeType,
+        TextFormat.WORD.mimeType, "application/json",
     ).associateWith { mime ->
         activity.registerForActivityResult(ActivityResultContracts.CreateDocument(mime)) { uri -> finishSave(uri) }
     }
@@ -82,13 +82,13 @@ class ConvertController(
     }
 
     /** Asks where to save [file] (as [mime] named [name]), then optionally opens it. */
-    private fun saveAs(file: File, mime: String, name: String, open: Boolean, onDone: (() -> Unit)? = null) {
+    internal fun saveAs(file: File, mime: String, name: String, open: Boolean, onDone: (() -> Unit)? = null) {
         pending = Pending(file, open, onDone)
         savers.getValue(mime).launch(name)
     }
 
     /** Replaces the open file with [file] when allowed, else saves a copy. */
-    private fun replaceOrCopy(doc: ToolsController.CurrentDocument, file: File) {
+    internal fun replaceOrCopy(doc: ToolsController.CurrentDocument, file: File) {
         activity.lifecycleScope.launch {
             if (doc.canOverwrite) {
                 try {
@@ -118,9 +118,9 @@ class ConvertController(
         return file
     }
 
-    private fun temp(extension: String) = File(context.cacheDir, "convert-${UUID.randomUUID()}.$extension")
+    internal fun temp(extension: String) = File(context.cacheDir, "convert-${UUID.randomUUID()}.$extension")
 
-    private fun baseName(name: String) = name.substringBeforeLast('.').ifBlank { "Document" }
+    internal fun baseName(name: String) = name.substringBeforeLast('.').ifBlank { "Document" }
 
     // --- Progress -------------------------------------------------------------------------------
 

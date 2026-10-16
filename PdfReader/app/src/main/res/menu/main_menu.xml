@@ -62,6 +62,15 @@
             <item android:id="@+id/tool_hidden_data" android:title="@string/hidden_title" />
         </menu>
     </item>
+    <item android:id="@+id/action_insights" android:title="@string/insights_menu" app:showAsAction="never">
+        <menu>
+            <item android:id="@+id/insight_summary" android:title="@string/summary_title" />
+            <item android:id="@+id/insight_ask" android:title="@string/ask_title" />
+            <item android:id="@+id/insight_extract" android:title="@string/extract_title" />
+            <item android:id="@+id/insight_review" android:title="@string/review_title" />
+            <item android:id="@+id/insight_bookmarks" android:title="@string/bookmarks_auto_title" />
+        </menu>
+    </item>
     <item android:id="@+id/action_document" android:title="@string/document_menu" app:showAsAction="never">
         <menu>
             <item android:id="@+id/action_share" android:title="@string/share" />

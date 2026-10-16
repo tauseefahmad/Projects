@@ -75,6 +75,18 @@ Not included yet: sending a document to others for signature (needs a server) an
 | Pictures to PDF | One page per picture (JPG, PNG, WebP, HEIC), turned the right way up |
 | Batch | Compress, OCR or clean many files at once into a folder you choose |
 
+### Insights (on the phone, nothing is uploaded)
+
+| Feature | What you get |
+| --- | --- |
+| Summary | The document's key sentences: one paragraph, one page or page by page; export as Markdown |
+| Ask this document | Type a question; the passages that answer it best, with page numbers; tap to jump there with the words highlighted |
+| Extract data | Recognizes invoices, receipts, contracts, payslips and letters; pulls out totals, dates, due dates, invoice numbers, IBAN/BIC, VAT IDs, emails and phone numbers; save as JSON or CSV |
+| Review contract | Termination, automatic renewal, liability, payment, penalties, confidentiality, jurisdiction and term clauses, with warnings for unusual ones (help with reading, not legal advice) |
+| Create bookmarks | A table of contents from the headings of documents that have none |
+
+These use rules and statistics, not a language model. Free-form AI answers, translation of whole documents and study cards need a cloud AI service and are not included.
+
 ### Security and privacy
 
 | Feature | What you get |

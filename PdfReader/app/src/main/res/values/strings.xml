@@ -441,4 +441,32 @@
         <item quantity="other">Done: %1$d files</item>
     </plurals>
     <string name="batch_done_failed">Done: %1$d files, %2$d failed</string>
+    <string name="insights_menu">Insights</string>
+    <string name="insights_no_text">This document has no text. Recognize text (OCR) first.</string>
+    <string name="page_n">Page %1$d</string>
+    <string name="page_short">p. %1$d</string>
+    <string name="summary_title">Summary</string>
+    <string name="summary_paragraph">One paragraph</string>
+    <string name="summary_page">One page</string>
+    <string name="summary_sections">Page by page</string>
+    <string name="summary_note">The document’s key sentences, picked on this phone. Tap one to see it in the document.</string>
+    <string name="summary_export">Export</string>
+    <string name="ask_title">Ask this document…</string>
+    <string name="ask_hint">e.g. What is the notice period?</string>
+    <string name="ask_action">Ask</string>
+    <string name="ask_again">Ask again</string>
+    <string name="ask_note">Passages that answer the question best, found on this phone. Tap one to see it highlighted.</string>
+    <string name="ask_nothing">No passage matches. Try other words.</string>
+    <string name="extract_title">Extract data</string>
+    <string name="extract_kind">Looks like: %1$s</string>
+    <string name="extract_nothing">No amounts, dates, IBANs or contact details found</string>
+    <string name="extract_json">Save JSON</string>
+    <string name="extract_csv">Save CSV</string>
+    <string name="review_title">Review contract</string>
+    <string name="review_disclaimer">Key clauses and unusual terms, found by rules on this phone. This is help with reading, not legal advice.</string>
+    <string name="review_nothing">No typical contract clauses found</string>
+    <string name="bookmarks_auto_title">Create bookmarks</string>
+    <string name="bookmarks_none_found">No headings found to make bookmarks from</string>
+    <string name="bookmarks_replace_note">The document’s current bookmarks will be replaced.</string>
+    <string name="bookmarks_add">Add bookmarks</string>
 </resources>

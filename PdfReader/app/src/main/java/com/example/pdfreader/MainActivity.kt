@@ -187,6 +187,11 @@ class MainActivity : AppCompatActivity() {
         reloadCurrent = { reloadCurrent() },
     )
 
+    /** Summaries, questions, data extraction, contract review, automatic bookmarks (phase 7). */
+    internal val insights by lazy {
+        InsightsController(this, { currentDocument() }, convert) { page, phrase -> showPassage(page, phrase) }
+    }
+
     /** Compress, export, OCR, pictures and camera to PDF, batch (phase 5). */
     internal val convert = ConvertController(
         activity = this,
@@ -556,6 +561,11 @@ class MainActivity : AppCompatActivity() {
                 R.id.tool_compress -> convert.showCompress()
                 R.id.tool_ocr -> convert.showOcr()
                 R.id.tool_export -> convert.showExport()
+                R.id.insight_summary -> insights.showSummary()
+                R.id.insight_ask -> insights.showAsk()
+                R.id.insight_extract -> insights.showExtract()
+                R.id.insight_review -> insights.showContractReview()
+                R.id.insight_bookmarks -> insights.showAutoBookmarks()
                 R.id.action_open_url -> showOpenUrlDialog()
                 R.id.action_go_to_page -> showGoToPageDialog()
                 R.id.action_bookmark -> toggleBookmark()
@@ -705,7 +715,7 @@ class MainActivity : AppCompatActivity() {
         toolbar.menu.findItem(R.id.action_bookmark).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_search).isVisible = ready != null
         toolbar.menu.findItem(R.id.action_rotate).isVisible = ready != null
-        for (id in listOf(R.id.action_annotate, R.id.action_document, R.id.action_full_screen, R.id.action_organize, R.id.action_tools)) {
+        for (id in listOf(R.id.action_annotate, R.id.action_document, R.id.action_full_screen, R.id.action_organize, R.id.action_tools, R.id.action_insights)) {
             toolbar.menu.findItem(id).isVisible = ready != null
         }
         for (id in listOf(R.id.action_annotate, R.id.action_sign, R.id.action_build_form)) {
@@ -1210,6 +1220,17 @@ class MainActivity : AppCompatActivity() {
         searchInput.setText("")
         suppressSearchInput = false
         if (search.query.isNotEmpty() || search.matches.isNotEmpty()) search.clear()
+    }
+
+    /** Goes to [page] and highlights [phrase] with the search bar, e.g. for a cited passage. */
+    private fun showPassage(page: Int, phrase: String) {
+        goToPage(page)
+        if (phrase.isBlank()) return
+        searchBar.isVisible = true
+        suppressSearchInput = true
+        searchInput.setText(phrase)
+        suppressSearchInput = false
+        search.search(phrase, SearchOptions(matchCase = false, wholeWord = false), page)
     }
 
     private fun runSearch() {
