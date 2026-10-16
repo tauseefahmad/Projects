@@ -52,7 +52,7 @@ object ConvertTools {
     /**
      * Shrinks the document's pictures to [preset] and re-encodes them as JPEG where that makes
      * them smaller. Saving also leaves out objects nothing refers to any more. Pictures with
-     * transparency, masks or 1-bit pictures (fax-style scans) are kept as they are.
+     * a soft mask keep it; stencil and color-key masks and 1-bit (fax-style) scans are left as they are.
      * Returns how many pictures were made smaller.
      */
     fun compress(doc: PDDocument, preset: CompressionPreset): Int {
@@ -80,7 +80,9 @@ object ConvertTools {
 
     private fun shrink(doc: PDDocument, image: PDImageXObject, preset: CompressionPreset): PDImageXObject? {
         val dict = image.cosObject
-        if (image.isStencil || image.bitsPerComponent == 1 || dict.containsKey(COSName.SMASK) || dict.containsKey(COSName.MASK)) return null
+        if (image.isStencil || image.bitsPerComponent == 1 || dict.containsKey(COSName.MASK)) return null
+        // A soft mask (transparency) is kept as it is; only the colors are re-encoded.
+        val softMask = dict.getDictionaryObject(COSName.SMASK)
         val width = image.width
         val height = image.height
         if (width <= 0 || height <= 0) return null
@@ -96,6 +98,7 @@ object ConvertTools {
         }
         val result = JPEGFactory.createFromImage(doc, opaque, preset.quality)
         opaque.recycle()
+        if (softMask != null) result.cosObject.setItem(COSName.SMASK, softMask)
         val before = dict.length
         val after = result.cosObject.length
         return if (after < before) result else null
