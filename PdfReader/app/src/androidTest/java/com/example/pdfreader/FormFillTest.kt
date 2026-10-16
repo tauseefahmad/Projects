@@ -101,14 +101,14 @@ object TestForms {
             doc.documentCatalog.acroForm = form
             form.defaultResources = PDResources().apply { put(COSName.getPDFName("Helv"), PDType1Font.HELVETICA) }
             form.defaultAppearance = "/Helv 0 Tf 0 g"
-            val widgets = mutableListOf<PDAnnotation>()
+            val allWidgets = mutableListOf<PDAnnotation>()
             val fields = mutableListOf<PDField>()
 
             fun widget(s: Spec) = PDAnnotationWidget().apply {
                 rectangle = rect(s)
                 this.page = page
                 isPrinted = true
-                widgets += this
+                allWidgets += this
             }
 
             // Labels next to the fields, as on a real form.
@@ -163,7 +163,7 @@ object TestForms {
                 fields += this
             }
             form.fields = fields
-            page.annotations = widgets
+            page.annotations = allWidgets
             doc.save(file)
         }
         return FileProvider.getUriForFile(context, "${context.packageName}.files", file)
