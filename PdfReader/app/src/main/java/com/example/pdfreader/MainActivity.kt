@@ -1387,7 +1387,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private companion object {
+    companion object {
         const val ZOOM_PRESET_ID_BASE = 10_000
         const val TAB_PAGES = 0
         const val TAB_OUTLINE = 1

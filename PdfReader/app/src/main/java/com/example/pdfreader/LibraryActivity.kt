@@ -131,7 +131,7 @@ class LibraryActivity : AppCompatActivity() {
                 filter = key
                 refresh()
             }
-            filters.addView(this)
+            this@LibraryActivity.filters.addView(this)
         }
         chip(getString(R.string.library_all), null)
         chip(getString(R.string.library_favorites), FAVORITES)
