@@ -82,7 +82,14 @@ object ReaderTestSupport {
     fun waitForPageLabel(expected: String, timeoutMs: Long = 10_000, diagnostics: () -> String = { "" }) {
         val deadline = System.currentTimeMillis() + timeoutMs
         while (true) {
-            val actual = pageLabelText()
+            // The screen can be briefly paused (e.g. while a file is reopened); keep waiting.
+            val actual = try {
+                pageLabelText()
+            } catch (e: RuntimeException) {
+                if (System.currentTimeMillis() > deadline) throw e
+                Thread.sleep(100)
+                continue
+            }
             if (actual == expected) return
             if (System.currentTimeMillis() > deadline) {
                 throw AssertionError("Page label was \"$actual\", expected \"$expected\". ${diagnostics()}")

@@ -76,8 +76,11 @@ class DigitalSignatureTest {
             onView(withText(R.string.dsig_sign)).inRoot(isDialog()).perform(click())
             waitFor(20_000) { assertTrue(DigitalSignatures.verify(context, f).singleOrNull()?.intact == true) }
             waitForPageLabel("1 / 1")
-            scenario.onActivity { it.extras.showSignatures() }
-            waitFor { onView(withText(containsString("Max Muster"))).inRoot(isDialog()).check(matches(isDisplayed())) }
+            // The signed file is reopened after saving; ask once it is shown again.
+            waitFor(20_000) {
+                scenario.onActivity { a -> if (a.extras.dialog?.isShowing != true) a.extras.showSignatures() }
+                onView(withText(containsString("Max Muster"))).inRoot(isDialog()).check(matches(isDisplayed()))
+            }
         }
     }
 }
