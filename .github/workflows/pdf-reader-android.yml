@@ -89,6 +89,39 @@ jobs:
           name: emulator-screenshots
           path: PdfReader/app/build/tour/
 
+  screenshots:
+    name: Publish emulator screenshots
+    runs-on: ubuntu-latest
+    needs: device-tests
+    if: always() && github.event_name == 'push'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: emulator-screenshots
+          path: screenshots
+        continue-on-error: true
+
+      - name: Pack the screenshots
+        id: pack
+        run: |
+          if [ -d screenshots ] && [ -n "$(ls -A screenshots)" ]; then
+            (cd screenshots && zip -q -r "../Screenshots-run-${{ github.run_number }}.zip" .)
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: softprops/action-gh-release@v2
+        if: steps.pack.outputs.found == 'true'
+        with:
+          tag_name: pdf-reader-screenshots-${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          name: Emulator screenshots, run ${{ github.run_number }}
+          prerelease: true
+          body: |
+            Screenshots of the app taken on the test emulator for `${{ github.sha }}`. No APK here: tested builds are the `pdf-reader-build-*` releases.
+          files: Screenshots-run-${{ github.run_number }}.zip
+
   release:
     name: Publish test build
     runs-on: ubuntu-latest

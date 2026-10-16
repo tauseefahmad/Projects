@@ -256,6 +256,7 @@ class MainActivity : AppCompatActivity() {
     /** For tests: the open document's annotations and the annotate-mode controller. */
     internal val annotationSession: AnnotationSession? get() = shownReady?.annotations
     internal fun openUriForTest(uri: Uri) = openUri(uri)
+    internal fun stateForTest(): String = viewModel.state.value.let { it::class.simpleName + (if (it is ReaderState.Error) " " + getString(it.message) else "") }
     internal val annotateController: AnnotateController get() = annotate
     internal val formController: FormController get() = forms
 

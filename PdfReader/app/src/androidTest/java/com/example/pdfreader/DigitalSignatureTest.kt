@@ -14,6 +14,7 @@ import com.example.pdfreader.ReaderTestSupport.context
 import com.example.pdfreader.ReaderTestSupport.openUri
 import com.example.pdfreader.ReaderTestSupport.waitFor
 import com.example.pdfreader.ReaderTestSupport.waitForPageLabel
+import androidx.test.platform.app.InstrumentationRegistry
 import org.hamcrest.Matchers.containsString
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -77,9 +78,18 @@ class DigitalSignatureTest {
             waitFor(20_000) { assertTrue(DigitalSignatures.verify(context, f).singleOrNull()?.intact == true) }
             waitForPageLabel("1 / 1")
             // The signed file is reopened after saving; ask once it is shown again.
-            waitFor(20_000) {
-                scenario.onActivity { a -> if (a.extras.dialog?.isShowing != true) a.extras.showSignatures() }
-                onView(withText(containsString("Max Muster"))).inRoot(isDialog()).check(matches(isDisplayed()))
+            try {
+                waitFor(20_000) {
+                    scenario.onActivity { a -> if (a.extras.dialog?.isShowing != true) a.extras.showSignatures() }
+                    onView(withText(containsString("Max Muster"))).inRoot(isDialog()).check(matches(isDisplayed()))
+                }
+            } catch (e: Throwable) {
+                // Say what the screen was doing, and keep a picture of it for the CI screenshots.
+                var state = ""
+                scenario.onActivity { a -> state = "state=${a.stateForTest()} dialog=${a.extras.dialog?.isShowing} label=${a.findViewById<android.widget.TextView>(R.id.pageLabel).text}" }
+                InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("mkdir -p /sdcard/Download/tour").close()
+                InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("screencap -p /sdcard/Download/tour/zz-signature-check-failed.png").let { ParcelStreams.readAll(it) }
+                throw AssertionError("Check signatures did not show: $state", e)
             }
         }
     }
