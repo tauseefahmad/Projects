@@ -74,13 +74,20 @@ jobs:
           profile: pixel_6
           disable-animations: true
           working-directory: PdfReader
-          script: ./gradlew connectedDebugAndroidTest || (python3 scripts/print_test_failures.py app/build/outputs/androidTest-results; exit 1)
+          # Screenshots of the tour test are pulled before the emulator shuts down.
+          script: ./gradlew connectedDebugAndroidTest; status=$?; adb pull /sdcard/Download/tour app/build/tour || true; if [ $status -ne 0 ]; then python3 scripts/print_test_failures.py app/build/outputs/androidTest-results; exit 1; fi
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: device-test-report
           path: PdfReader/app/build/reports/androidTests/
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: emulator-screenshots
+          path: PdfReader/app/build/tour/
 
   release:
     name: Publish test build
@@ -97,6 +104,15 @@ jobs:
       - name: Name the APK
         run: mv app-debug.apk "PdfReader-build-${{ github.run_number }}.apk"
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: emulator-screenshots
+          path: screenshots
+        continue-on-error: true
+
+      - name: Pack the emulator screenshots
+        run: if [ -d screenshots ]; then (cd screenshots && zip -q -r "../Screenshots-build-${{ github.run_number }}.zip" .); fi
+
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: pdf-reader-build-${{ github.run_number }}
@@ -109,4 +125,6 @@ jobs:
             **Change:** ${{ github.event.head_commit.message }}
 
             Download the APK below and open it on your phone to install or update.
-          files: PdfReader-build-${{ github.run_number }}.apk
+          files: |
+            PdfReader-build-${{ github.run_number }}.apk
+            Screenshots-build-${{ github.run_number }}.zip
