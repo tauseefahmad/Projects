@@ -93,7 +93,9 @@ class LibraryTest {
             try {
                 waitFor { scenario.onActivity { a -> a.extras.dialog!!.listView.performItemClick(null, 0, 0) } }
             } catch (e: Throwable) {
-                throw AssertionError("Versions list did not show: ${VersionStore.list(context, uriOf(f)).size} versions for ${uriOf(f)}\n${ReaderTestSupport.appLog()}", e)
+                var trace = ""
+                scenario.onActivity { trace = it.extras.trace.joinToString(" | ") }
+                throw AssertionError("Versions list did not show: ${VersionStore.list(context, uriOf(f)).size} versions for ${uriOf(f)}; trace=$trace", e)
             }
             waitFor { onView(withText(R.string.versions_restore)).inRoot(isDialog()).perform(click()) }
             waitFor { onView(withText(R.string.versions_restore_action)).inRoot(isDialog()).perform(click()) }

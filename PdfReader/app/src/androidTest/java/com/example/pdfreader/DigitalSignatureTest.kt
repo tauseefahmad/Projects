@@ -87,10 +87,10 @@ class DigitalSignatureTest {
             } catch (e: Throwable) {
                 // Say what the screen was doing, and keep a picture of it for the CI screenshots.
                 var state = ""
-                scenario.onActivity { a -> state = "state=${a.stateForTest()} dialog=${a.extras.dialog?.isShowing} label=${a.findViewById<android.widget.TextView>(R.id.pageLabel).text}" }
+                scenario.onActivity { a -> state = "state=${a.stateForTest()} dialog=${a.extras.dialog?.isShowing} label=${a.findViewById<android.widget.TextView>(R.id.pageLabel).text} trace=${a.extras.trace.joinToString(" | ")}" }
                 InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("mkdir -p /sdcard/Download/tour").close()
                 InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("screencap -p /sdcard/Download/tour/zz-signature-check-failed.png").let { ParcelStreams.readAll(it) }
-                throw AssertionError("Check signatures did not show: $state\n${ReaderTestSupport.appLog()}", e)
+                throw AssertionError("Check signatures did not show: $state", e)
             }
         }
     }

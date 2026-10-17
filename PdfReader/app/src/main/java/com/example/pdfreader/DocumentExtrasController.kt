@@ -51,14 +51,25 @@ class DocumentExtrasController(
         const val TAG = "PdfReader"
     }
 
+    /** The last steps of the checks below, for tests to explain a failure. */
+    internal val trace = ArrayDeque<String>()
+
+    private fun note(message: String) {
+        Log.i(TAG, message)
+        synchronized(trace) {
+            trace.addLast(message)
+            if (trace.size > 20) trace.removeFirst()
+        }
+    }
+
     private val density get() = context.resources.displayMetrics.density
 
     // --- Version history --------------------------------------------------------------------------
 
     fun showVersions() {
-        val doc = current() ?: run { Log.w(TAG, "Versions: no document shown"); return }
+        val doc = current() ?: run { note("Versions: no document shown"); return }
         val versions = VersionStore.list(context, doc.uri)
-        Log.i(TAG, "Versions: ${versions.size} for ${doc.uri}")
+        note("Versions: ${versions.size} for ${doc.uri}")
         if (versions.isEmpty()) {
             dialog = MaterialAlertDialogBuilder(context)
                 .setTitle(R.string.versions_title)
@@ -374,22 +385,23 @@ class DocumentExtrasController(
 
     /** Lists the digital signatures in the document and whether each is intact. */
     fun showSignatures() {
-        val doc = current() ?: run { Log.w(TAG, "Check signatures: no document shown"); return }
-        if (signatureCheck?.isActive == true) return
-        Log.i(TAG, "Check signatures: ${doc.uri}")
+        val doc = current() ?: run { note("Check signatures: no document shown"); return }
+        if (signatureCheck?.isActive == true) run { note("Check signatures: already running"); return }
+        note("Check signatures: ${doc.uri}")
         signatureCheck = activity.lifecycleScope.launch {
             val checks = try {
                 withContext(Dispatchers.IO) {
                     val copy = convert.temp("pdf")
                     try {
                         context.contentResolver.openInputStream(doc.uri)!!.use { i -> copy.outputStream().use { i.copyTo(it) } }
-                        DigitalSignatures.verify(context, copy).also { Log.i(TAG, "Check signatures: ${it.size} found") }
+                        DigitalSignatures.verify(context, copy).also { note("Check signatures: ${it.size} found") }
                     } finally {
                         copy.delete()
                     }
                 }
             } catch (e: Throwable) {
                 Log.w(TAG, "Checking signatures failed", e)
+                note("Check signatures failed: $e")
                 dialog = MaterialAlertDialogBuilder(context)
                     .setTitle(R.string.dsig_check_title)
                     .setMessage(context.getString(R.string.dsig_check_failed, e.message ?: e.javaClass.simpleName))
@@ -423,6 +435,7 @@ class DocumentExtrasController(
                 .setView(ScrollView(context).apply { addView(list) })
                 .setPositiveButton(R.string.close, null)
                 .show()
+            note("Check signatures: shown")
         }
     }
 
