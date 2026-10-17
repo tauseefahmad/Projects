@@ -72,6 +72,13 @@ object ReaderTestSupport {
         }
     }
 
+    /** The app's recent log lines, to explain a failure. */
+    fun appLog(): String {
+        val pfd = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().uiAutomation
+            .executeShellCommand("logcat -d -t 60 -s PdfReader:V AndroidRuntime:E")
+        return android.os.ParcelFileDescriptor.AutoCloseInputStream(pfd).use { it.readBytes().toString(Charsets.UTF_8) }
+    }
+
     /** Current text of the page label ("3 / 10"). */
     fun pageLabelText(): String {
         var text = ""

@@ -3,6 +3,7 @@ package com.example.pdfreader
 import android.net.Uri
 import android.text.format.DateUtils
 import android.text.format.Formatter
+import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
@@ -46,13 +47,18 @@ class DocumentExtrasController(
     var dialog: AlertDialog? = null
         private set
 
+    private companion object {
+        const val TAG = "PdfReader"
+    }
+
     private val density get() = context.resources.displayMetrics.density
 
     // --- Version history --------------------------------------------------------------------------
 
     fun showVersions() {
-        val doc = current() ?: return
+        val doc = current() ?: run { Log.w(TAG, "Versions: no document shown"); return }
         val versions = VersionStore.list(context, doc.uri)
+        Log.i(TAG, "Versions: ${versions.size} for ${doc.uri}")
         if (versions.isEmpty()) {
             dialog = MaterialAlertDialogBuilder(context)
                 .setTitle(R.string.versions_title)
@@ -363,26 +369,27 @@ class DocumentExtrasController(
         }
     }
 
-    /** Lists the digital signatures in the document and whether each is intact. */
     /** The signature check in progress; a second tap while it runs is ignored. */
     private var signatureCheck: Job? = null
 
+    /** Lists the digital signatures in the document and whether each is intact. */
     fun showSignatures() {
-        val doc = current() ?: return
+        val doc = current() ?: run { Log.w(TAG, "Check signatures: no document shown"); return }
         if (signatureCheck?.isActive == true) return
+        Log.i(TAG, "Check signatures: ${doc.uri}")
         signatureCheck = activity.lifecycleScope.launch {
             val checks = try {
                 withContext(Dispatchers.IO) {
                     val copy = convert.temp("pdf")
                     try {
                         context.contentResolver.openInputStream(doc.uri)!!.use { i -> copy.outputStream().use { i.copyTo(it) } }
-                        DigitalSignatures.verify(context, copy)
+                        DigitalSignatures.verify(context, copy).also { Log.i(TAG, "Check signatures: ${it.size} found") }
                     } finally {
                         copy.delete()
                     }
                 }
             } catch (e: Throwable) {
-                android.util.Log.w("PdfReader", "Checking signatures failed", e)
+                Log.w(TAG, "Checking signatures failed", e)
                 dialog = MaterialAlertDialogBuilder(context)
                     .setTitle(R.string.dsig_check_title)
                     .setMessage(context.getString(R.string.dsig_check_failed, e.message ?: e.javaClass.simpleName))

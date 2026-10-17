@@ -90,7 +90,11 @@ class LibraryTest {
             waitForPageLabel("1 / 1")
 
             scenario.onActivity { it.extras.showVersions() }
-            waitFor { scenario.onActivity { a -> a.extras.dialog!!.listView.performItemClick(null, 0, 0) } }
+            try {
+                waitFor { scenario.onActivity { a -> a.extras.dialog!!.listView.performItemClick(null, 0, 0) } }
+            } catch (e: Throwable) {
+                throw AssertionError("Versions list did not show: ${VersionStore.list(context, uriOf(f)).size} versions for ${uriOf(f)}\n${ReaderTestSupport.appLog()}", e)
+            }
             waitFor { onView(withText(R.string.versions_restore)).inRoot(isDialog()).perform(click()) }
             waitFor { onView(withText(R.string.versions_restore_action)).inRoot(isDialog()).perform(click()) }
             waitFor { assertEquals("Original wording", text(f).trim()) }
